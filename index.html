@@ -1,1981 +1,392 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Система рейтинга Глико</title>
-    <style>
-        :root {
-            --primary: #3498db;
-            --primary-dark: #2980b9;
-            --secondary: #2ecc71;
-            --danger: #e74c3c;
-            --warning: #f39c12;
-            --dark: #2c3e50;
-            --light: #ecf0f1;
-            --gray: #95a5a6;
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background-color: #f5f7fa;
-            color: #333;
-            line-height: 1.6;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        h1 {
-            color: var(--dark);
-            margin-bottom: 10px;
-        }
-        
-        .description {
-            color: var(--gray);
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        h2 {
-            color: var(--dark);
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        h3 {
-            color: var(--dark);
-            margin: 15px 0 10px 0;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-        
-        input, select, button {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        
-        button {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            font-weight: 600;
-        }
-        
-        button:hover {
-            background-color: var(--primary-dark);
-        }
-        
-        button.danger {
-            background-color: var(--danger);
-        }
-        
-        button.danger:hover {
-            background-color: #c0392b;
-        }
-        
-        button.secondary {
-            background-color: var(--gray);
-        }
-        
-        button.secondary:hover {
-            background-color: #7f8c8d;
-        }
-        
-        button.warning {
-            background-color: var(--warning);
-        }
-        
-        button.warning:hover {
-            background-color: #e67e22;
-        }
-        
-        button.success {
-            background-color: var(--secondary);
-        }
-        
-        button.success:hover {
-            background-color: #27ae60;
-        }
-        
-        .two-columns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        
-        @media (max-width: 768px) {
-            .two-columns {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        .player-list {
-            max-height: 200px;
-            overflow-y: auto;
-            margin-bottom: 15px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            padding: 10px;
-        }
-        
-        .player-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .player-item:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .player-item:last-child {
-            border-bottom: none;
-        }
-        
-        .player-actions {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .player-action-btn {
-            padding: 4px 8px;
-            font-size: 12px;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        
-        .edit-btn {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .delete-btn {
-            background: var(--danger);
-            color: white;
-        }
-        
-        .form-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-        
-        .form-row input, .form-row select {
-            flex: 1;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-            color: var(--dark);
-        }
-        
-        tr:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .rating {
-            font-weight: bold;
-        }
-        
-        .positive {
-            color: var(--secondary);
-        }
-        
-        .negative {
-            color: var(--danger);
-        }
-        
-        .warning-text {
-            color: var(--warning);
-        }
-        
-        .game-history {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        .actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .actions button {
-            flex: 1;
-        }
-        
-        .rd-value {
-            font-size: 0.9em;
-            color: var(--gray);
-        }
-        
-        .games-count {
-            text-align: center;
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 2px 8px;
-            font-size: 0.8em;
-        }
-        
-        .rating-change {
-            font-size: 0.85em;
-            margin-left: 5px;
-        }
-        
-        .info-box {
-            background: #e8f4fc;
-            border-left: 4px solid var(--primary);
-            padding: 10px 15px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        
-        .warning-box {
-            background: #fef9e7;
-            border-left: 4px solid var(--warning);
-            padding: 10px 15px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        
-        .volatility {
-            font-size: 0.8em;
-            color: var(--gray);
-            margin-left: 5px;
-        }
-        
-        .rating-difference {
-            font-size: 0.8em;
-            color: var(--gray);
-            margin-left: 5px;
-        }
-        
-        .expected-result {
-            font-size: 0.8em;
-            color: var(--primary);
-            margin-left: 5px;
-        }
-        
-        .game-entry {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .game-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .game-number {
-            font-weight: bold;
-            color: var(--dark);
-        }
-        
-        .remove-game {
-            background: var(--danger);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .remove-game:hover {
-            background: #c0392b;
-        }
-        
-        .games-container {
-            max-height: 500px;
-            overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-        
-        .add-game-btn {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-        
-        .batch-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .bye-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-        
-        .bye-checkbox input {
-            width: auto;
-        }
-        
-        .bye-section {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 4px;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .bye-info {
-            font-size: 0.9em;
-            color: var(--warning);
-            margin-top: 5px;
-        }
-        
-        .game-type-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.7em;
-            font-weight: bold;
-            margin-left: 8px;
-        }
-        
-        .badge-bye {
-            background: var(--warning);
-            color: white;
-        }
-        
-        .badge-regular {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .position-number {
-            font-weight: bold;
-            color: var(--dark);
-            width: 40px;
-            text-align: center;
-        }
-        
-        /* Модальные окна */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        
-        .player-modal, .edit-game-modal, .edit-player-modal {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            max-width: 800px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        
-        .edit-game-modal, .edit-player-modal {
-            max-width: 500px;
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .modal-title {
-            color: var(--dark);
-            margin: 0;
-        }
-        
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--gray);
-            padding: 0;
-            width: auto;
-        }
-        
-        .close-modal:hover {
-            color: var(--danger);
-        }
-        
-        .player-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-        
-        .stat-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: var(--dark);
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            color: var(--gray);
-            font-size: 0.9em;
-        }
-        
-        .opponent-stats {
-            margin-top: 20px;
-        }
-        
-        .opponent-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            align-items: center;
-        }
-        
-        .opponent-row:hover {
-            background: #f8f9fa;
-        }
-        
-        .opponent-name {
-            font-weight: 600;
-            flex: 1;
-        }
-        
-        .opponent-record {
-            display: flex;
-            gap: 15px;
-        }
-        
-        .record-item {
-            text-align: center;
-            min-width: 60px;
-        }
-        
-        .record-value {
-            font-weight: bold;
-            font-size: 1.1em;
-        }
-        
-        .record-label {
-            font-size: 0.8em;
-            color: var(--gray);
-        }
-        
-        .win-record { color: var(--secondary); }
-        .loss-record { color: var(--danger); }
-        .draw-record { color: var(--warning); }
-        
-        .no-opponents {
-            text-align: center;
-            color: var(--gray);
-            padding: 20px;
-            font-style: italic;
-        }
-        
-        .game-actions {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .game-action-btn {
-            padding: 4px 8px;
-            font-size: 12px;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        
-        .history-actions {
-            display: flex;
-            gap: 5px;
-            justify-content: flex-end;
-        }
-        
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-        
-        .modal-actions button {
-            width: auto;
-            min-width: 100px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Система рейтинга Глико</h1>
-            <p class="description">Улучшенная система рейтинга с поддержкой BYE, редактированием игр и профилей игроков.</p>
-        </header>
-        
-        <div class="two-columns">
-            <div class="card">
-                <h2>Добавить игрока</h2>
-                <form id="addPlayerForm">
-                    <div class="form-group">
-                        <label for="playerName">Имя игрока:</label>
-                        <input type="text" id="playerName" placeholder="Введите имя игрока" required>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Система рейтинга Глико</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>Система рейтинга Глико</h1>
+                <p class="description">
+                    Сезонная система рейтинга с турнирной статистикой и наградами за
+                    посещение.
+                </p>
+            </header>
+
+            <div class="two-columns">
+                <div class="card">
+                    <h2>Добавить игрока</h2>
+                    <form id="addPlayerForm">
+                        <div class="form-group">
+                            <label for="playerName">Имя игрока:</label>
+                            <input
+                                type="text"
+                                id="playerName"
+                                placeholder="Введите имя игрока"
+                                required
+                            />
+                        </div>
+                        <button type="submit">Добавить игрока</button>
+                    </form>
+
+                    <h2 style="margin-top: 20px">Список игроков</h2>
+                    <div class="player-list" id="playerList"></div>
+                </div>
+
+                <div class="card">
+                    <h2>Добавить результаты игр</h2>
+                    <div class="info-box">
+                        <strong>Турнирные игры:</strong> Игры группируются по дате для
+                        подсчета статистики турниров.
                     </div>
-                    <button type="submit">Добавить игрока</button>
-                </form>
-                
-                <h2 style="margin-top: 20px;">Список игроков</h2>
-                <div class="player-list" id="playerList">
-                    <!-- Список игроков будет заполнен скриптом -->
+                    <form id="gamesForm">
+                        <div class="form-group">
+                            <label for="gameDate">Дата турнира:</label>
+                            <input type="date" id="gameDate" required />
+                        </div>
+
+                        <h3>Список игр турнира</h3>
+                        <div class="games-container" id="gamesContainer"></div>
+
+                        <div class="batch-actions">
+                            <button type="button" id="addGameBtn" class="add-game-btn">
+                                + Добавить игру
+                            </button>
+                            <button type="button" id="addByeGameBtn" class="warning">
+                                + Добавить BYE
+                            </button>
+                            <button type="button" id="clearGamesBtn" class="danger">
+                                Очистить все
+                            </button>
+                        </div>
+
+                        <button type="submit">Сохранить турнир</button>
+                    </form>
                 </div>
             </div>
-            
+
             <div class="card">
-                <h2>Добавить результаты игр</h2>
-                <div class="info-box">
-                    <strong>Множественные игры + BYE:</strong> Добавьте до 10 игр, включая BYE (когда у игрока нет соперника).
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 15px;
+                    "
+                >
+                    <h2 style="margin: 0">Рейтинг игроков</h2>
+                    <div class="sort-controls">
+                        <select id="sortBy">
+                            <option value="rating">По рейтингу</option>
+                            <option value="games">По количеству игр</option>
+                            <option value="tournaments">По количеству турниров</option>
+                            <option value="name">По имени</option>
+                            <option value="rd">По RD (нестабильности)</option>
+                        </select>
+                        <select id="sortOrder">
+                            <option value="desc">По убыванию</option>
+                            <option value="asc">По возрастанию</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="warning-box">
-                    <strong>BYE (игра без соперника):</strong> Игрок получает автоматическую победу с минимальным изменением рейтинга. RD уменьшается медленнее.
-                </div>
-                <form id="gamesForm">
-                    <div class="form-group">
-                        <label for="gameDate">Дата игр:</label>
-                        <input type="date" id="gameDate" required>
-                    </div>
-                    
-                    <h3>Список игр</h3>
-                    <div class="games-container" id="gamesContainer">
-                        <!-- Игры будут добавляться здесь -->
-                    </div>
-                    
-                    <div class="batch-actions">
-                        <button type="button" id="addGameBtn" class="add-game-btn">+ Добавить игру</button>
-                        <button type="button" id="addByeGameBtn" class="warning">+ Добавить BYE</button>
-                        <button type="button" id="clearGamesBtn" class="danger">Очистить все</button>
-                    </div>
-                    
-                    <button type="submit">Сохранить все игры</button>
-                </form>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2>Рейтинг игроков</h2>
-            <table id="ratingTable">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Игрок</th>
-                        <th>Рейтинг</th>
-                        <th>RD</th>
-                        <th>Волатильность</th>
-                        <th>Игр сыграно</th>
-                        <th>Последнее обновление</th>
-                    </tr>
-                </thead>
-                <tbody id="ratingBody">
-                    <!-- Данные будут заполнены скриптом -->
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="card">
-            <h2>История игр</h2>
-            <div class="game-history">
-                <table id="historyTable">
+                <table id="ratingTable">
                     <thead>
                         <tr>
-                            <th>Дата</th>
-                            <th>Тип</th>
-                            <th>Игрок 1</th>
-                            <th>Результат</th>
-                            <th>Игрок 2</th>
-                            <th>Результат</th>
-                            <th>Изменения рейтинга</th>
-                            <th>Действия</th>
+                            <th class="sortable" data-sort="position">#</th>
+                            <th class="sortable" data-sort="name">Игрок</th>
+                            <th class="sortable" data-sort="rating">Рейтинг</th>
+                            <th class="sortable" data-sort="rd">RD</th>
+                            <th class="sortable" data-sort="games">Игр в сезоне</th>
+                            <th class="sortable" data-sort="tournaments">Турниров</th>
+                            <th class="sortable" data-sort="lastUpdate">
+                                Последнее обновление
+                            </th>
                         </tr>
                     </thead>
-                    <tbody id="historyBody">
-                        <!-- Данные будут заполнены скриптом -->
-                    </tbody>
+                    <tbody id="ratingBody"></tbody>
                 </table>
             </div>
-        </div>
-        
-        <div class="actions">
-            <button id="exportData">Экспорт данных</button>
-            <button id="importData">Импорт данных</button>
-            <button id="resetData" class="danger">Сбросить все данные</button>
-        </div>
-    </div>
 
-    <!-- Модальное окно игрока -->
-    <div id="playerModal" class="modal-overlay" style="display: none;">
-        <div class="player-modal">
-            <div class="modal-header">
-                <h2 class="modal-title" id="modalPlayerName">Имя игрока</h2>
-                <button class="close-modal" onclick="closePlayerModal()">×</button>
-            </div>
-            
-            <div class="player-stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="modalPlayerRating">1500</div>
-                    <div class="stat-label">Рейтинг</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="modalPlayerRD">200</div>
-                    <div class="stat-label">RD</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="modalTotalGames">0</div>
-                    <div class="stat-label">Всего игр</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="modalWinRate">0%</div>
-                    <div class="stat-label">Процент побед</div>
+            <div class="card">
+                <h2>История игр</h2>
+                <div class="game-history">
+                    <table id="historyTable">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th>Игрок 1</th>
+                                <th>Результат</th>
+                                <th>Игрок 2</th>
+                                <th>Результат</th>
+                                <th>Изменения рейтинга</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody"></tbody>
+                    </table>
                 </div>
             </div>
-            
-            <h3>Статистика по соперникам</h3>
-            <div class="opponent-stats" id="opponentStats">
-                <!-- Статистика по соперникам будет заполнена здесь -->
+
+            <div class="actions">
+                <button id="exportData">Экспорт данных</button>
+                <button id="importData">Импорт данных</button>
+                <button id="resetSeasonBtn" class="warning">Сбросить сезон</button>
+                <button id="resetData" class="danger">Сбросить все данные</button>
             </div>
         </div>
-    </div>
 
-    <!-- Модальное окно редактирования игры -->
-    <div id="editGameModal" class="modal-overlay" style="display: none;">
-        <div class="edit-game-modal">
-            <div class="modal-header">
-                <h2 class="modal-title">Редактировать игру</h2>
-                <button class="close-modal" onclick="closeEditGameModal()">×</button>
-            </div>
-            
-            <form id="editGameForm">
-                <input type="hidden" id="editGameIndex">
-                <div class="form-group">
-                    <label for="editGameDate">Дата игры:</label>
-                    <input type="date" id="editGameDate" required>
+        <!-- Модальное окно игрока -->
+        <div id="playerModal" class="modal-overlay" style="display: none">
+            <div class="player-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="modalPlayerName">Имя игрока</h2>
+                    <button class="close-modal" onclick="closePlayerModal()">×</button>
                 </div>
-                
-                <div class="form-group">
-                    <label>Игроки и результаты:</label>
-                    <div class="form-row">
-                        <select id="editPlayer1Select" required>
-                            <option value="">Выберите игрока 1</option>
-                        </select>
-                        <select id="editPlayer1Result" required>
-                            <option value="win">Победа</option>
-                            <option value="loss">Поражение</option>
-                            <option value="draw">Ничья</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-row">
-                        <select id="editPlayer2Select" required>
-                            <option value="">Выберите игрока 2</option>
-                        </select>
-                        <select id="editPlayer2Result" required>
-                            <option value="win">Победа</option>
-                            <option value="loss">Поражение</option>
-                            <option value="draw">Ничья</option>
-                        </select>
-                    </div>
+
+                <div class="tab-navigation">
+                    <button class="tab-button active" onclick="switchTab('stats-tab')">
+                        Общая статистика
+                    </button>
+                    <button class="tab-button" onclick="switchTab('tournaments-tab')">
+                        Турниры
+                    </button>
+                    <button class="tab-button" onclick="switchTab('opponents-tab')">
+                        Соперники
+                    </button>
                 </div>
-                
-                <div class="modal-actions">
-                    <button type="button" class="secondary" onclick="closeEditGameModal()">Отмена</button>
-                    <button type="submit" class="success">Сохранить изменения</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <!-- Модальное окно редактирования игрока -->
-    <div id="editPlayerModal" class="modal-overlay" style="display: none;">
-        <div class="edit-player-modal">
-            <div class="modal-header">
-                <h2 class="modal-title">Редактировать игрока</h2>
-                <button class="close-modal" onclick="closeEditPlayerModal()">×</button>
-            </div>
-            
-            <form id="editPlayerForm">
-                <input type="hidden" id="editPlayerOriginalName">
-                <div class="form-group">
-                    <label for="editPlayerName">Имя игрока:</label>
-                    <input type="text" id="editPlayerName" placeholder="Введите имя игрока" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="editPlayerRating">Рейтинг:</label>
-                    <input type="number" id="editPlayerRating" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="editPlayerRD">RD:</label>
-                    <input type="number" id="editPlayerRD" required min="30" max="350">
-                </div>
-                
-                <div class="modal-actions">
-                    <button type="button" class="danger" onclick="deletePlayer()">Удалить игрока</button>
-                    <button type="button" class="secondary" onclick="closeEditPlayerModal()">Отмена</button>
-                    <button type="submit" class="success">Сохранить изменения</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // Константы для системы Глико
-        const INITIAL_RATING = 1500;
-        const INITIAL_RD = 200;
-        const MIN_RD = 30;
-        const Q = Math.log(10) / 400;
-        const C = 15;
-        
-        // Получение данных из локального хранилища
-        function getPlayers() {
-            const players = localStorage.getItem('glickoPlayers');
-            return players ? JSON.parse(players) : {};
-        }
-
-        function getGames() {
-            const games = localStorage.getItem('glickoGames');
-            return games ? JSON.parse(games) : [];
-        }
-
-        // Сохранение данных в локальное хранилище
-        function savePlayers(players) {
-            localStorage.setItem('glickoPlayers', JSON.stringify(players));
-        }
-
-        function saveGames(games) {
-            localStorage.setItem('glickoGames', JSON.stringify(games));
-        }
-
-        // Пересчет всех рейтингов с нуля
-        function recalculateAllRatings() {
-            const players = getPlayers();
-            const games = getGames();
-            
-            // Сбрасываем всех игроков к начальным значениям
-            Object.keys(players).forEach(playerName => {
-                players[playerName] = {
-                    rating: INITIAL_RATING,
-                    rd: INITIAL_RD,
-                    games: 0,
-                    volatility: "0.0",
-                    lastUpdate: Date.now()
-                };
-            });
-            
-            // Обрабатываем все игры по порядку
-            games.forEach(game => {
-                const currentTime = new Date(game.date).getTime();
-                
-                if (game.type === 'BYE') {
-                    // Обработка BYE игры
-                    const player = players[game.player1];
-                    if (player) {
-                        const updatedPlayer = updateRatingForBye(player, currentTime);
-                        players[game.player1] = {
-                            ...player,
-                            ...updatedPlayer,
-                            games: player.games + 1
-                        };
-                    }
-                } else {
-                    // Обработка обычной игры
-                    const player1 = players[game.player1];
-                    const player2 = players[game.player2];
-                    
-                    if (player1 && player2) {
-                        const resultMap = { 'win': 1, 'loss': 0, 'draw': 0.5 };
-                        const numResult1 = resultMap[game.result1];
-                        const numResult2 = resultMap[game.result2];
-                        
-                        const updatedPlayer1 = updateRating(player1, player2, numResult1, currentTime);
-                        players[game.player1] = {
-                            ...player1,
-                            ...updatedPlayer1,
-                            games: player1.games + 1
-                        };
-                        
-                        const updatedPlayer2 = updateRating(player2, player1, numResult2, currentTime);
-                        players[game.player2] = {
-                            ...player2,
-                            ...updatedPlayer2,
-                            games: player2.games + 1
-                        };
-                    }
-                }
-            });
-            
-            savePlayers(players);
-            return players;
-        }
-
-        // Расчет g-функции для RD
-        function g(RD) {
-            return 1 / Math.sqrt(1 + 3 * Q * Q * RD * RD / (Math.PI * Math.PI));
-        }
-
-        // Расчет ожидаемого результата
-        function expectedScore(rating, opponentRating, opponentRD) {
-            return 1 / (1 + Math.pow(10, -g(opponentRD) * (rating - opponentRating) / 400));
-        }
-
-        // Адаптивный расчет K-фактора на основе разницы рейтингов и RD
-        function calculateKFactor(player, opponent, result, expected) {
-            let kFactor = 32; // Базовый K-фактор
-            
-            // Увеличиваем K-фактор для неожиданных результатов
-            const surprise = Math.abs(result - expected);
-            if (surprise > 0.7) {
-                kFactor *= 1.5; // Сильное удивление
-            } else if (surprise > 0.4) {
-                kFactor *= 1.2; // Среднее удивление
-            }
-            
-            // Учитываем RD игрока (меньше изменений для стабильных игроков)
-            if (player.rd < 100) {
-                kFactor *= 0.7;
-            } else if (player.rd < 150) {
-                kFactor *= 0.8;
-            }
-            
-            // Учитываем количество сыгранных игр
-            if (player.games > 30) {
-                kFactor *= 0.6;
-            } else if (player.games > 10) {
-                kFactor *= 0.8;
-            }
-            
-            return Math.min(kFactor, 50); // Максимальный предел
-        }
-
-        // Обновление рейтинга и RD после обычной игры
-        function updateRating(player, opponent, result, currentTime) {
-            // Расчет времени с последнего обновления (в днях)
-            const daysSinceLastUpdate = Math.max((currentTime - player.lastUpdate) / (1000 * 60 * 60 * 24), 0);
-            
-            // Обновление RD с учетом времени
-            const newRD = Math.min(Math.sqrt(player.rd * player.rd + C * C * daysSinceLastUpdate), INITIAL_RD);
-            
-            // Расчет ожидаемого результата
-            const E = expectedScore(player.rating, opponent.rating, newRD);
-            
-            // Адаптивный K-фактор
-            const kFactor = calculateKFactor(player, opponent, result, E);
-            
-            // Расчет d^2
-            const dSquared = 1 / (Q * Q * g(newRD) * g(newRD) * E * (1 - E));
-            
-            // Расчет нового рейтинга
-            const ratingChange = (kFactor * (result - E));
-            
-            // Ограничение максимального изменения для очень неожиданных результатов
-            const limitedRatingChange = Math.max(Math.min(ratingChange, 100), -100);
-            
-            const newRating = player.rating + limitedRatingChange;
-            
-            // Расчет нового RD
-            const newRDAfterGame = Math.max(Math.sqrt(1 / (1 / (newRD * newRD) + 1 / dSquared)), MIN_RD);
-            
-            // Расчет волатильности
-            const volatility = ((player.rd - newRDAfterGame) / player.rd * 100).toFixed(1);
-            
-            return {
-                rating: Math.round(newRating),
-                rd: Math.round(newRDAfterGame),
-                ratingChange: Math.round(limitedRatingChange),
-                volatility: volatility,
-                expectedScore: E,
-                kFactor: kFactor,
-                lastUpdate: currentTime
-            };
-        }
-
-        // Обновление рейтинга для BYE (игры без соперника)
-        function updateRatingForBye(player, currentTime) {
-            // Расчет времени с последнего обновления (в днях)
-            const daysSinceLastUpdate = Math.max((currentTime - player.lastUpdate) / (1000 * 60 * 60 * 24), 0);
-            
-            // Обновление RD с учетом времени
-            const newRD = Math.min(Math.sqrt(player.rd * player.rd + C * C * daysSinceLastUpdate), INITIAL_RD);
-            
-            // Для BYE игрок получает небольшую положительную корректировку
-            // и медленное уменьшение RD
-            const ratingChange = 5; // Небольшое положительное изменение
-            
-            const newRating = player.rating + ratingChange;
-            
-            // RD уменьшается медленнее для BYE
-            const newRDAfterGame = Math.max(newRD * 0.95, MIN_RD);
-            
-            // Расчет волатильности
-            const volatility = ((player.rd - newRDAfterGame) / player.rd * 100).toFixed(1);
-            
-            return {
-                rating: Math.round(newRating),
-                rd: Math.round(newRDAfterGame),
-                ratingChange: ratingChange,
-                volatility: volatility,
-                expectedScore: 1, // Для BYE ожидаемый результат всегда 1 (победа)
-                kFactor: 10, // Пониженный K-фактор для BYE
-                lastUpdate: currentTime
-            };
-        }
-
-        // Добавление нового игрока
-        function addPlayer(name) {
-            const players = getPlayers();
-            
-            if (players[name]) {
-                alert('Игрок с таким именем уже существует!');
-                return false;
-            }
-            
-            players[name] = {
-                rating: INITIAL_RATING,
-                rd: INITIAL_RD,
-                games: 0,
-                volatility: "0.0",
-                lastUpdate: Date.now()
-            };
-            
-            savePlayers(players);
-            return true;
-        }
-
-        // Создание элемента обычной игры
-        function createGameEntry(index) {
-            const gameEntry = document.createElement('div');
-            gameEntry.className = 'game-entry';
-            gameEntry.innerHTML = `
-                <div class="game-header">
-                    <span class="game-number">Игра ${index + 1} <span class="game-type-badge badge-regular">ОБЫЧНАЯ</span></span>
-                    <button type="button" class="remove-game" onclick="removeGame(this)">× Удалить</button>
-                </div>
-                <div class="form-row">
-                    <select class="player1-select" required>
-                        <option value="">Выберите игрока 1</option>
-                    </select>
-                    <select class="player1-result" required>
-                        <option value="win">Победа</option>
-                        <option value="loss">Поражение</option>
-                        <option value="draw">Ничья</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <select class="player2-select" required>
-                        <option value="">Выберите игрока 2</option>
-                    </select>
-                    <select class="player2-result" required>
-                        <option value="win">Победа</option>
-                        <option value="loss">Поражение</option>
-                        <option value="draw">Ничья</option>
-                    </select>
-                </div>
-            `;
-            
-            // Заполняем выпадающие списки игроками
-            populateGameSelects(gameEntry);
-            
-            return gameEntry;
-        }
-
-        // Создание элемента BYE игры
-        function createByeGameEntry(index) {
-            const gameEntry = document.createElement('div');
-            gameEntry.className = 'game-entry';
-            gameEntry.innerHTML = `
-                <div class="game-header">
-                    <span class="game-number">Игра ${index + 1} <span class="game-type-badge badge-bye">BYE</span></span>
-                    <button type="button" class="remove-game" onclick="removeGame(this)">× Удалить</button>
-                </div>
-                <div class="bye-section">
-                    <div class="bye-checkbox">
-                        <input type="checkbox" class="is-bye-checkbox" checked disabled>
-                        <label>Это BYE (игра без соперника)</label>
-                    </div>
-                    <div class="form-row">
-                        <select class="player1-select" required>
-                            <option value="">Выберите игрока</option>
-                        </select>
-                        <select class="player1-result" required disabled>
-                            <option value="win" selected>Победа (автоматически)</option>
-                        </select>
-                    </div>
-                    <div class="bye-info">
-                        Игрок получает автоматическую победу с минимальным изменением рейтинга (+5 очков)
-                    </div>
-                </div>
-            `;
-            
-            // Заполняем выпадающий список игроками
-            populateGameSelects(gameEntry);
-            
-            return gameEntry;
-        }
-
-        // Заполнение выпадающих списков в элементе игры
-        function populateGameSelects(gameElement) {
-            const players = getPlayers();
-            const player1Select = gameElement.querySelector('.player1-select');
-            const player2Select = gameElement.querySelector('.player2-select');
-            
-            player1Select.innerHTML = '<option value="">Выберите игрока 1</option>';
-            if (player2Select) {
-                player2Select.innerHTML = '<option value="">Выберите игрока 2</option>';
-            }
-            
-            Object.keys(players).forEach(name => {
-                const option1 = document.createElement('option');
-                option1.value = name;
-                option1.textContent = name;
-                player1Select.appendChild(option1);
-                
-                if (player2Select) {
-                    const option2 = document.createElement('option');
-                    option2.value = name;
-                    option2.textContent = name;
-                    player2Select.appendChild(option2);
-                }
-            });
-        }
-
-        // Удаление игры
-        function removeGame(button) {
-            const gameEntry = button.closest('.game-entry');
-            gameEntry.remove();
-            updateGameNumbers();
-        }
-
-        // Обновление нумерации игр
-        function updateGameNumbers() {
-            const gameEntries = document.querySelectorAll('.game-entry');
-            gameEntries.forEach((entry, index) => {
-                const gameNumber = entry.querySelector('.game-number');
-                const baseText = gameNumber.textContent.split(' ')[0] + ' ' + (index + 1);
-                const badge = gameNumber.querySelector('.game-type-badge');
-                gameNumber.innerHTML = baseText + (badge ? ' ' + badge.outerHTML : '');
-            });
-        }
-
-        // Добавление новой игры в форму
-        function addGameToForm(isBye = false) {
-            const gamesContainer = document.getElementById('gamesContainer');
-            const gameCount = gamesContainer.children.length;
-            
-            if (gameCount >= 10) {
-                alert('Максимальное количество игр - 10');
-                return;
-            }
-            
-            const newGame = isBye ? createByeGameEntry(gameCount) : createGameEntry(gameCount);
-            gamesContainer.appendChild(newGame);
-        }
-
-        // Очистка всех игр
-        function clearAllGames() {
-            const gamesContainer = document.getElementById('gamesContainer');
-            gamesContainer.innerHTML = '';
-        }
-
-        // Проверка, является ли игра BYE
-        function isByeGame(gameElement) {
-            return gameElement.querySelector('.is-bye-checkbox') !== null;
-        }
-
-        // Добавление множественных игр
-        function addGames(date, gamesData) {
-            const players = getPlayers();
-            const games = getGames();
-            const currentTime = new Date(date).getTime();
-            
-            // Создаем копию игроков для временных расчетов
-            const tempPlayers = JSON.parse(JSON.stringify(players));
-            
-            // Обрабатываем все игры
-            gamesData.forEach(gameData => {
-                const { player1, player2, result1, result2, isBye } = gameData;
-                
-                if (!tempPlayers[player1]) {
-                    alert(`Игрок не найден: ${player1}`);
-                    return false;
-                }
-                
-                if (isBye) {
-                    // Обработка BYE игры
-                    const updatedPlayer = updateRatingForBye(tempPlayers[player1], currentTime);
-                    tempPlayers[player1] = {
-                        ...tempPlayers[player1],
-                        ...updatedPlayer,
-                        games: tempPlayers[player1].games + 1
-                    };
-                    
-                    // Добавляем BYE игру в историю
-                    games.unshift({
-                        date: date,
-                        type: 'BYE',
-                        player1: player1,
-                        result1: 'win',
-                        player2: 'BYE',
-                        result2: 'loss',
-                        ratingChange1: updatedPlayer.ratingChange,
-                        ratingChange2: 0,
-                        ratingDiff: 0,
-                        expected1: '100.0',
-                        expected2: '0.0'
-                    });
-                } else {
-                    // Обработка обычной игры
-                    if (!tempPlayers[player2]) {
-                        alert(`Игрок не найден: ${player2}`);
-                        return false;
-                    }
-                    
-                    const resultMap = { 'win': 1, 'loss': 0, 'draw': 0.5 };
-                    const numResult1 = resultMap[result1];
-                    const numResult2 = resultMap[result2];
-                    
-                    const ratingDiff = Math.abs(tempPlayers[player1].rating - tempPlayers[player2].rating);
-                    
-                    // Обновляем рейтинги во временных данных
-                    const updatedPlayer1 = updateRating(tempPlayers[player1], tempPlayers[player2], numResult1, currentTime);
-                    tempPlayers[player1] = {
-                        ...tempPlayers[player1],
-                        ...updatedPlayer1,
-                        games: tempPlayers[player1].games + 1
-                    };
-                    
-                    const updatedPlayer2 = updateRating(tempPlayers[player2], tempPlayers[player1], numResult2, currentTime);
-                    tempPlayers[player2] = {
-                        ...tempPlayers[player2],
-                        ...updatedPlayer2,
-                        games: tempPlayers[player2].games + 1
-                    };
-                    
-                    // Добавляем игру в историю
-                    games.unshift({
-                        date: date,
-                        type: 'Обычная',
-                        player1: player1,
-                        player2: player2,
-                        result1: result1,
-                        result2: result2,
-                        ratingChange1: updatedPlayer1.ratingChange,
-                        ratingChange2: updatedPlayer2.ratingChange,
-                        ratingDiff: ratingDiff,
-                        expected1: (updatedPlayer1.expectedScore * 100).toFixed(1),
-                        expected2: (updatedPlayer2.expectedScore * 100).toFixed(1)
-                    });
-                }
-            });
-            
-            // Сохраняем обновленные данные
-            savePlayers(tempPlayers);
-            saveGames(games);
-            
-            return true;
-        }
-
-        // Отображение списка игроков
-        function displayPlayerList() {
-            const players = getPlayers();
-            const playerList = document.getElementById('playerList');
-            playerList.innerHTML = '';
-            
-            if (Object.keys(players).length === 0) {
-                playerList.innerHTML = '<p>Нет добавленных игроков</p>';
-                return;
-            }
-            
-            Object.entries(players).forEach(([name, data]) => {
-                const playerItem = document.createElement('div');
-                playerItem.className = 'player-item';
-                playerItem.innerHTML = `
-                    <span onclick="openPlayerModal('${name}')" style="cursor: pointer; flex: 1;">${name}</span>
-                    <div class="player-actions">
-                        <button class="player-action-btn edit-btn" onclick="openEditPlayerModal('${name}', event)">✏️</button>
-                        <button class="player-action-btn delete-btn" onclick="deletePlayerPrompt('${name}', event)">🗑️</button>
-                    </div>
-                `;
-                playerList.appendChild(playerItem);
-            });
-        }
-
-        // Заполнение выпадающих списков игроков
-        function populatePlayerSelects() {
-            const players = getPlayers();
-            const gameEntries = document.querySelectorAll('.game-entry');
-            
-            gameEntries.forEach(entry => {
-                populateGameSelects(entry);
-            });
-            
-            // Заполняем списки в модальном окне редактирования игры
-            const editPlayer1Select = document.getElementById('editPlayer1Select');
-            const editPlayer2Select = document.getElementById('editPlayer2Select');
-            
-            if (editPlayer1Select) {
-                editPlayer1Select.innerHTML = '<option value="">Выберите игрока 1</option>';
-                editPlayer2Select.innerHTML = '<option value="">Выберите игрока 2</option>';
-                
-                Object.keys(players).forEach(name => {
-                    const option1 = document.createElement('option');
-                    option1.value = name;
-                    option1.textContent = name;
-                    editPlayer1Select.appendChild(option1);
-                    
-                    const option2 = document.createElement('option');
-                    option2.value = name;
-                    option2.textContent = name;
-                    editPlayer2Select.appendChild(option2);
-                });
-            }
-        }
-
-        // Отображение рейтинга
-        function displayRating() {
-            const players = getPlayers();
-            const ratingBody = document.getElementById('ratingBody');
-            ratingBody.innerHTML = '';
-            
-            if (Object.keys(players).length === 0) {
-                ratingBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Нет данных о рейтинге</td></tr>';
-                return;
-            }
-            
-            const sortedPlayers = Object.entries(players)
-                .sort((a, b) => b[1].rating - a[1].rating);
-            
-            sortedPlayers.forEach(([name, data], index) => {
-                const row = document.createElement('tr');
-                const lastUpdate = new Date(data.lastUpdate).toLocaleDateString('ru-RU');
-                
-                row.innerHTML = `
-                    <td class="position-number">${index + 1}</td>
-                    <td><span onclick="openPlayerModal('${name}')" style="cursor: pointer; font-weight: 600;">${name}</span></td>
-                    <td class="rating">${data.rating}</td>
-                    <td><span class="rd-value">${data.rd}</span></td>
-                    <td><span class="volatility">${data.volatility}%</span></td>
-                    <td>${data.games}</td>
-                    <td>${lastUpdate}</td>
-                `;
-                ratingBody.appendChild(row);
-            });
-        }
-
-        // Отображение истории игр
-        function displayHistory() {
-            const games = getGames();
-            const historyBody = document.getElementById('historyBody');
-            historyBody.innerHTML = '';
-            
-            if (games.length === 0) {
-                historyBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Нет истории игр</td></tr>';
-                return;
-            }
-            
-            games.forEach((game, index) => {
-                const row = document.createElement('tr');
-                
-                const typeClass = game.type === 'BYE' ? 'warning-text' : '';
-                const typeBadge = game.type === 'BYE' ? 'badge-bye' : 'badge-regular';
-                
-                const result1Class = game.result1 === 'win' ? 'positive' : (game.result1 === 'loss' ? 'negative' : '');
-                const result2Class = game.result2 === 'win' ? 'positive' : (game.result2 === 'loss' ? 'negative' : '');
-                
-                const change1 = game.ratingChange1 > 0 ? `+${game.ratingChange1}` : game.ratingChange1;
-                const change2 = game.ratingChange2 > 0 ? `+${game.ratingChange2}` : game.ratingChange2;
-                const change1Class = game.ratingChange1 > 0 ? 'positive' : (game.ratingChange1 < 0 ? 'negative' : '');
-                const change2Class = game.ratingChange2 > 0 ? 'positive' : (game.ratingChange2 < 0 ? 'negative' : '');
-                
-                row.innerHTML = `
-                    <td>${game.date}</td>
-                    <td><span class="${typeClass} game-type-badge ${typeBadge}">${game.type}</span></td>
-                    <td><span onclick="openPlayerModal('${game.player1}')" style="cursor: pointer;">${game.player1}</span></td>
-                    <td class="${result1Class}">${getResultText(game.result1)}</td>
-                    <td>${game.player2 ? `<span onclick="openPlayerModal('${game.player2}')" style="cursor: pointer;">${game.player2}</span>` : '-'}</td>
-                    <td class="${result2Class}">${getResultText(game.result2)}</td>
-                    <td>
-                        <span class="${change1Class}">${game.player1}: ${change1}</span>
-                        ${game.player2 ? `<br><span class="${change2Class}">${game.player2}: ${change2}</span>` : ''}
-                    </td>
-                    <td>
-                        <div class="history-actions">
-                            <button class="game-action-btn edit-btn" onclick="openEditGameModal(${index})">✏️</button>
-                            <button class="game-action-btn delete-btn" onclick="deleteGame(${index})">🗑️</button>
+                <div id="stats-tab" class="tab-content active">
+                    <div class="player-stats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="modalPlayerRating">1500</div>
+                            <div class="stat-label">Рейтинг</div>
                         </div>
-                    </td>
-                `;
-                historyBody.appendChild(row);
-            });
-        }
-        
-        function getResultText(result) {
-            const resultMap = {
-                'win': 'Победа',
-                'loss': 'Поражение',
-                'draw': 'Ничья'
-            };
-            return resultMap[result] || result;
-        }
+                        <div class="stat-card">
+                            <div class="stat-value" id="modalPlayerRD">200</div>
+                            <div class="stat-label">RD</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="modalTotalGames">0</div>
+                            <div class="stat-label">Игр в сезоне</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="modalTournamentsCount">0</div>
+                            <div class="stat-label">Турниров</div>
+                        </div>
 
-        // Открытие модального окна игрока
-        function openPlayerModal(playerName) {
-            const players = getPlayers();
-            const games = getGames();
-            const player = players[playerName];
-            
-            if (!player) return;
-            
-            // Заполняем основную информацию
-            document.getElementById('modalPlayerName').textContent = playerName;
-            document.getElementById('modalPlayerRating').textContent = player.rating;
-            document.getElementById('modalPlayerRD').textContent = player.rd;
-            document.getElementById('modalTotalGames').textContent = player.games;
-            
-            // Рассчитываем статистику по играм
-            const playerGames = games.filter(game => 
-                game.player1 === playerName || game.player2 === playerName
-            );
-            
-            const wins = playerGames.filter(game => {
-                if (game.player1 === playerName) return game.result1 === 'win';
-                if (game.player2 === playerName) return game.result2 === 'win';
-                return false;
-            }).length;
-            
-            const losses = playerGames.filter(game => {
-                if (game.player1 === playerName) return game.result1 === 'loss';
-                if (game.player2 === playerName) return game.result2 === 'loss';
-                return false;
-            }).length;
-            
-            const draws = playerGames.filter(game => {
-                if (game.player1 === playerName) return game.result1 === 'draw';
-                if (game.player2 === playerName) return game.result2 === 'draw';
-                return false;
-            }).length;
-            
-            const winRate = player.games > 0 ? Math.round((wins / player.games) * 100) : 0;
-            document.getElementById('modalWinRate').textContent = winRate + '%';
-            
-            // Рассчитываем статистику по соперникам
-            const opponentStats = {};
-            
-            playerGames.forEach(game => {
-                let opponent, result;
-                
-                if (game.player1 === playerName) {
-                    opponent = game.player2;
-                    result = game.result1;
-                } else {
-                    opponent = game.player1;
-                    result = game.result2;
-                }
-                
-                if (opponent === 'BYE') return; // Пропускаем BYE игры
-                
-                if (!opponentStats[opponent]) {
-                    opponentStats[opponent] = { wins: 0, losses: 0, draws: 0 };
-                }
-                
-                if (result === 'win') opponentStats[opponent].wins++;
-                else if (result === 'loss') opponentStats[opponent].losses++;
-                else if (result === 'draw') opponentStats[opponent].draws++;
-            });
-            
-            // Отображаем статистику по соперникам
-            const opponentStatsContainer = document.getElementById('opponentStats');
-            opponentStatsContainer.innerHTML = '';
-            
-            if (Object.keys(opponentStats).length === 0) {
-                opponentStatsContainer.innerHTML = '<div class="no-opponents">Нет данных о играх с другими игроками</div>';
-            } else {
-                Object.entries(opponentStats).forEach(([opponent, stats]) => {
-                    const totalGames = stats.wins + stats.losses + stats.draws;
-                    const row = document.createElement('div');
-                    row.className = 'opponent-row';
-                    row.innerHTML = `
-                        <div class="opponent-name">${opponent}</div>
-                        <div class="opponent-record">
-                            <div class="record-item">
-                                <div class="record-value win-record">${stats.wins}</div>
-                                <div class="record-label">Побед</div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="modalAvgGamesPerTournament">
+                                0
                             </div>
-                            <div class="record-item">
-                                <div class="record-value loss-record">${stats.losses}</div>
-                                <div class="record-label">Поражений</div>
+                            <div class="stat-label">Игр/турнир</div>
+                        </div>
+                    </div>
+
+                    <!-- Круговая диаграмма будет вставлена здесь автоматически -->
+
+                    <div class="season-reset-section">
+                        <h3>Сброс сезонной статистики</h3>
+                        <p>
+                            Сброс количества игр и турниров для награждения в конце
+                            сезона.
+                        </p>
+                        <div class="reset-stats">
+                            <div class="reset-stat">
+                                <div class="stat-value" id="resetGamesCount">0</div>
+                                <div class="stat-label">Игр в сезоне</div>
                             </div>
-                            <div class="record-item">
-                                <div class="record-value draw-record">${stats.draws}</div>
-                                <div class="record-label">Ничьих</div>
-                            </div>
-                            <div class="record-item">
-                                <div class="record-value">${totalGames}</div>
-                                <div class="record-label">Всего</div>
+                            <div class="reset-stat">
+                                <div class="stat-value" id="resetTournamentsCount">0</div>
+                                <div class="stat-label">Турниров</div>
                             </div>
                         </div>
-                    `;
-                    opponentStatsContainer.appendChild(row);
-                });
-            }
-            
-            // Показываем модальное окно
-            document.getElementById('playerModal').style.display = 'flex';
-        }
+                        <button class="warning" onclick="resetPlayerSeason()">
+                            Сбросить сезонную статистику
+                        </button>
+                    </div>
+                </div>
 
-        // Закрытие модального окна игрока
-        function closePlayerModal() {
-            document.getElementById('playerModal').style.display = 'none';
-        }
+                <div id="tournaments-tab" class="tab-content">
+                    <h3>История турниров</h3>
+                    <div class="tournament-stats" id="tournamentStats">
+                        <!-- Статистика по турнирам будет заполнена здесь -->
+                    </div>
+                </div>
 
-        // Открытие модального окна редактирования игры
-        function openEditGameModal(gameIndex) {
-            const games = getGames();
-            const game = games[gameIndex];
-            
-            if (!game) return;
-            
-            document.getElementById('editGameIndex').value = gameIndex;
-            document.getElementById('editGameDate').value = game.date;
-            
-            const player1Select = document.getElementById('editPlayer1Select');
-            const player2Select = document.getElementById('editPlayer2Select');
-            const player1Result = document.getElementById('editPlayer1Result');
-            const player2Result = document.getElementById('editPlayer2Result');
-            
-            // Заполняем значения
-            player1Select.value = game.player1;
-            player1Result.value = game.result1;
-            
-            if (game.type === 'BYE') {
-                player2Select.value = '';
-                player2Result.value = 'loss';
-                player2Select.disabled = true;
-                player2Result.disabled = true;
-            } else {
-                player2Select.value = game.player2;
-                player2Result.value = game.result2;
-                player2Select.disabled = false;
-                player2Result.disabled = false;
-            }
-            
-            document.getElementById('editGameModal').style.display = 'flex';
-        }
+                <div id="opponents-tab" class="tab-content">
+                    <h3>Статистика по соперникам</h3>
+                    <div class="opponent-stats" id="opponentStats">
+                        <!-- Статистика по соперникам будет заполнена здесь -->
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        // Закрытие модального окна редактирования игры
-        function closeEditGameModal() {
-            document.getElementById('editGameModal').style.display = 'none';
-        }
+        <!-- Модальное окно редактирования игры -->
+        <div id="editGameModal" class="modal-overlay" style="display: none">
+            <div class="edit-game-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">Редактировать игру</h2>
+                    <button class="close-modal" onclick="closeEditGameModal()">×</button>
+                </div>
 
-        // Открытие модального окна редактирования игрока
-        function openEditPlayerModal(playerName, event) {
-            if (event) event.stopPropagation();
-            
-            const players = getPlayers();
-            const player = players[playerName];
-            
-            if (!player) return;
-            
-            document.getElementById('editPlayerOriginalName').value = playerName;
-            document.getElementById('editPlayerName').value = playerName;
-            document.getElementById('editPlayerRating').value = player.rating;
-            document.getElementById('editPlayerRD').value = player.rd;
-            
-            document.getElementById('editPlayerModal').style.display = 'flex';
-        }
+                <form id="editGameForm">
+                    <input type="hidden" id="editGameIndex" />
+                    <div class="form-group">
+                        <label for="editGameDate">Дата игры:</label>
+                        <input type="date" id="editGameDate" required />
+                    </div>
 
-        // Закрытие модального окна редактирования игрока
-        function closeEditPlayerModal() {
-            document.getElementById('editPlayerModal').style.display = 'none';
-        }
+                    <div class="form-group">
+                        <label>Игроки и результаты:</label>
+                        <div class="form-row">
+                            <select id="editPlayer1Select" required>
+                                <option value="">Выберите игрока 1</option>
+                            </select>
+                            <select id="editPlayer1Result" required>
+                                <option value="win">Победа</option>
+                                <option value="loss">Поражение</option>
+                                <option value="draw">Ничья</option>
+                            </select>
+                        </div>
 
-        // Удаление игры
-        function deleteGame(gameIndex) {
-            if (!confirm('Вы уверены, что хотите удалить эту игру? Это повлияет на рейтинги игроков.')) {
-                return;
-            }
-            
-            const games = getGames();
-            games.splice(gameIndex, 1);
-            saveGames(games);
-            
-            // Пересчитываем все рейтинги
-            recalculateAllRatings();
-            
-            displayRating();
-            displayHistory();
-            displayPlayerList();
-            
-            alert('Игра удалена. Все рейтинги пересчитаны.');
-        }
+                        <div class="form-row">
+                            <select id="editPlayer2Select" required>
+                                <option value="">Выберите игрока 2</option>
+                            </select>
+                            <select id="editPlayer2Result" required>
+                                <option value="win">Победа</option>
+                                <option value="loss">Поражение</option>
+                                <option value="draw">Ничья</option>
+                            </select>
+                        </div>
+                    </div>
 
-        // Запрос на удаление игрока
-        function deletePlayerPrompt(playerName, event) {
-            if (event) event.stopPropagation();
-            
-            if (!confirm(`Вы уверены, что хотите удалить игрока "${playerName}"? Это также удалит все игры с его участием.`)) {
-                return;
-            }
-            
-            deletePlayer(playerName);
-        }
+                    <div class="modal-actions">
+                        <button
+                            type="button"
+                            class="secondary"
+                            onclick="closeEditGameModal()"
+                        >
+                            Отмена
+                        </button>
+                        <button type="submit" class="success">Сохранить изменения</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
-        // Удаление игрока
-        function deletePlayer(playerName = null) {
-            if (!playerName) {
-                playerName = document.getElementById('editPlayerOriginalName').value;
-            }
-            
-            const players = getPlayers();
-            const games = getGames();
-            
-            // Удаляем игрока
-            delete players[playerName];
-            
-            // Удаляем игры с участием этого игрока
-            const updatedGames = games.filter(game => 
-                game.player1 !== playerName && game.player2 !== playerName
-            );
-            
-            savePlayers(players);
-            saveGames(updatedGames);
-            
-            // Пересчитываем все рейтинги
-            recalculateAllRatings();
-            
-            displayRating();
-            displayHistory();
-            displayPlayerList();
-            closeEditPlayerModal();
-            
-            alert(`Игрок "${playerName}" удален. Все рейтинги пересчитаны.`);
-        }
+        <!-- Модальное окно редактирования игрока -->
+        <div id="editPlayerModal" class="modal-overlay" style="display: none">
+            <div class="edit-player-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">Редактировать игрока</h2>
+                    <button class="close-modal" onclick="closeEditPlayerModal()">
+                        ×
+                    </button>
+                </div>
 
-        // Обработка добавления игрока
-        document.getElementById('addPlayerForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const playerName = document.getElementById('playerName').value.trim();
-            
-            if (!playerName) {
-                alert('Пожалуйста, введите имя игрока');
-                return;
-            }
-            
-            if (addPlayer(playerName)) {
-                displayPlayerList();
-                populatePlayerSelects();
-                displayRating();
-                document.getElementById('addPlayerForm').reset();
-            }
-        });
+                <form id="editPlayerForm">
+                    <input type="hidden" id="editPlayerOriginalName" />
+                    <div class="form-group">
+                        <label for="editPlayerName">Имя игрока:</label>
+                        <input
+                            type="text"
+                            id="editPlayerName"
+                            placeholder="Введите имя игрока"
+                            required
+                        />
+                    </div>
 
-        // Обработка добавления обычной игры в форму
-        document.getElementById('addGameBtn').addEventListener('click', () => addGameToForm(false));
+                    <div class="form-group">
+                        <label for="editPlayerRating">Рейтинг:</label>
+                        <input type="number" id="editPlayerRating" required />
+                    </div>
 
-        // Обработка добавления BYE игры в форму
-        document.getElementById('addByeGameBtn').addEventListener('click', () => addGameToForm(true));
+                    <div class="form-group">
+                        <label for="editPlayerRD">RD:</label>
+                        <input
+                            type="number"
+                            id="editPlayerRD"
+                            required
+                            min="30"
+                            max="350"
+                        />
+                    </div>
 
-        // Обработка очистки всех игр
-        document.getElementById('clearGamesBtn').addEventListener('click', clearAllGames);
+                    <div class="modal-actions">
+                        <button type="button" class="danger" onclick="deletePlayer()">
+                            Удалить игрока
+                        </button>
+                        <button
+                            type="button"
+                            class="secondary"
+                            onclick="closeEditPlayerModal()"
+                        >
+                            Отмена
+                        </button>
+                        <button type="submit" class="success">Сохранить изменения</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
-        // Обработка добавления множественных игр
-        document.getElementById('gamesForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const date = document.getElementById('gameDate').value;
-            if (!date) {
-                alert('Пожалуйста, введите дату игр');
-                return;
-            }
-            
-            const gameEntries = document.querySelectorAll('.game-entry');
-            if (gameEntries.length === 0) {
-                alert('Пожалуйста, добавьте хотя бы одну игру');
-                return;
-            }
-            
-            const gamesData = [];
-            let hasErrors = false;
-            
-            gameEntries.forEach((entry, index) => {
-                const player1Select = entry.querySelector('.player1-select');
-                const player2Select = entry.querySelector('.player2-select');
-                const player1Result = entry.querySelector('.player1-result');
-                
-                const player1 = player1Select.value;
-                const result1 = player1Result.value;
-                
-                if (!player1) {
-                    alert(`В игре ${index + 1} не выбран игрок`);
-                    hasErrors = true;
-                    return;
-                }
-                
-                if (isByeGame(entry)) {
-                    // BYE игра
-                    gamesData.push({
-                        player1,
-                        result1: 'win',
-                        isBye: true
-                    });
-                } else {
-                    // Обычная игра
-                    const player2 = player2Select.value;
-                    const result2 = entry.querySelector('.player2-result').value;
-                    
-                    if (!player2) {
-                        alert(`В игре ${index + 1} не выбран второй игрок`);
-                        hasErrors = true;
-                        return;
-                    }
-                    
-                    if (player1 === player2) {
-                        alert(`В игре ${index + 1} выбран один и тот же игрок дважды`);
-                        hasErrors = true;
-                        return;
-                    }
-                    
-                    if ((result1 === 'win' && result2 === 'win') || 
-                        (result1 === 'loss' && result2 === 'loss')) {
-                        alert(`В игре ${index + 1} некорректные результаты: оба игрока не могут одновременно победить или проиграть`);
-                        hasErrors = true;
-                        return;
-                    }
-                    
-                    gamesData.push({
-                        player1,
-                        player2,
-                        result1,
-                        result2,
-                        isBye: false
-                    });
-                }
-            });
-            
-            if (hasErrors) return;
-            
-            if (addGames(date, gamesData)) {
-                displayPlayerList();
-                displayRating();
-                displayHistory();
-                clearAllGames();
-                alert(`Успешно добавлено ${gamesData.length} игр!`);
-            }
-        });
+        <!-- Модальное окно турнира -->
+        <div id="tournamentModal" class="modal-overlay" style="display: none">
+            <div class="tournament-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="tournamentModalTitle">Турнир</h2>
+                    <button class="close-modal" onclick="closeTournamentModal()">
+                        ×
+                    </button>
+                </div>
 
-        // Обработка редактирования игры
-        document.getElementById('editGameForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const gameIndex = parseInt(document.getElementById('editGameIndex').value);
-            const date = document.getElementById('editGameDate').value;
-            const player1 = document.getElementById('editPlayer1Select').value;
-            const player2 = document.getElementById('editPlayer2Select').value;
-            const result1 = document.getElementById('editPlayer1Result').value;
-            const result2 = document.getElementById('editPlayer2Result').value;
-            
-            if (!date || !player1) {
-                alert('Пожалуйста, заполните все обязательные поля');
-                return;
-            }
-            
-            const games = getGames();
-            
-            if (player2) {
-                // Обычная игра
-                if (player1 === player2) {
-                    alert('Нельзя выбрать одного и того же игрока дважды');
-                    return;
-                }
-                
-                if ((result1 === 'win' && result2 === 'win') || 
-                    (result1 === 'loss' && result2 === 'loss')) {
-                    alert('Некорректные результаты: оба игрока не могут одновременно победить или проиграть');
-                    return;
-                }
-                
-                games[gameIndex] = {
-                    ...games[gameIndex],
-                    date: date,
-                    type: 'Обычная',
-                    player1: player1,
-                    player2: player2,
-                    result1: result1,
-                    result2: result2
-                };
-            } else {
-                // BYE игра
-                games[gameIndex] = {
-                    ...games[gameIndex],
-                    date: date,
-                    type: 'BYE',
-                    player1: player1,
-                    result1: 'win',
-                    player2: 'BYE',
-                    result2: 'loss'
-                };
-            }
-            
-            saveGames(games);
-            
-            // Пересчитываем все рейтинги
-            recalculateAllRatings();
-            
-            displayRating();
-            displayHistory();
-            displayPlayerList();
-            closeEditGameModal();
-            
-            alert('Игра обновлена. Все рейтинги пересчитаны.');
-        });
+                <div class="tournament-date-edit">
+                    <label for="editTournamentDate">Дата турнира:</label>
+                    <input type="date" id="editTournamentDate" />
+                    <button
+                        type="button"
+                        class="success"
+                        onclick="updateTournamentDate()"
+                    >
+                        Обновить дату
+                    </button>
+                </div>
 
-        // Обработка редактирования игрока
-        document.getElementById('editPlayerForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const originalName = document.getElementById('editPlayerOriginalName').value;
-            const newName = document.getElementById('editPlayerName').value.trim();
-            const rating = parseInt(document.getElementById('editPlayerRating').value);
-            const rd = parseInt(document.getElementById('editPlayerRD').value);
-            
-            if (!newName) {
-                alert('Пожалуйста, введите имя игрока');
-                return;
-            }
-            
-            if (rd < 30 || rd > 350) {
-                alert('RD должен быть в диапазоне от 30 до 350');
-                return;
-            }
-            
-            const players = getPlayers();
-            const games = getGames();
-            
-            // Если имя изменилось, обновляем его во всех играх
-            if (originalName !== newName) {
-                if (players[newName]) {
-                    alert('Игрок с таким именем уже существует');
-                    return;
-                }
-                
-                // Обновляем имя в играх
-                games.forEach(game => {
-                    if (game.player1 === originalName) game.player1 = newName;
-                    if (game.player2 === originalName) game.player2 = newName;
-                });
-                
-                // Обновляем имя в списке игроков
-                players[newName] = players[originalName];
-                delete players[originalName];
-            }
-            
-            // Обновляем рейтинг и RD
-            players[newName].rating = rating;
-            players[newName].rd = rd;
-            
-            savePlayers(players);
-            saveGames(games);
-            
-            displayRating();
-            displayHistory();
-            displayPlayerList();
-            closeEditPlayerModal();
-            
-            alert('Профиль игрока обновлен');
-        });
+                <h3>Игры турнира</h3>
+                <div class="tournament-games-list" id="tournamentGamesList">
+                    <!-- Список игр турнира будет заполнен здесь -->
+                </div>
 
-        // Экспорт, импорт и сброс данных
-        document.getElementById('exportData').addEventListener('click', function() {
-            const players = getPlayers();
-            const games = getGames();
-            const data = { players, games };
-            
-            const dataStr = JSON.stringify(data, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            
-            const url = URL.createObjectURL(dataBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'glicko_data.json';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        });
+                <div class="tournament-batch-actions">
+                    <button
+                        type="button"
+                        class="warning"
+                        onclick="recalculateTournament()"
+                    >
+                        Пересчитать турнир
+                    </button>
+                    <button type="button" class="danger" onclick="deleteTournament()">
+                        Удалить весь турнир
+                    </button>
+                </div>
 
-        document.getElementById('importData').addEventListener('click', function() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-            
-            input.addEventListener('change', function() {
-                const file = this.files[0];
-                if (!file) return;
-                
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        
-                        if (data.players && data.games) {
-                            savePlayers(data.players);
-                            saveGames(data.games);
-                            
-                            // Пересчитываем все рейтинги
-                            recalculateAllRatings();
-                            
-                            displayPlayerList();
-                            populatePlayerSelects();
-                            displayRating();
-                            displayHistory();
-                            alert('Данные успешно импортированы и рейтинги пересчитаны!');
-                        } else {
-                            alert('Некорректный формат файла');
-                        }
-                    } catch (error) {
-                        alert('Ошибка при чтении файла: ' + error.message);
-                    }
-                };
-                reader.readAsText(file);
-            });
-            
-            input.click();
-        });
+                <div class="modal-actions">
+                    <button
+                        type="button"
+                        class="secondary"
+                        onclick="closeTournamentModal()"
+                    >
+                        Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
 
-        document.getElementById('resetData').addEventListener('click', function() {
-            if (confirm('Вы уверены, что хотите сбросить все данные? Это действие нельзя отменить.')) {
-                localStorage.removeItem('glickoPlayers');
-                localStorage.removeItem('glickoGames');
-                displayPlayerList();
-                populatePlayerSelects();
-                displayRating();
-                displayHistory();
-                clearAllGames();
-                alert('Все данные сброшены');
-            }
-        });
-
-        // Закрытие модальных окон по клику на оверлей
-        document.getElementById('playerModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closePlayerModal();
-            }
-        });
-
-        document.getElementById('editGameModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeEditGameModal();
-            }
-        });
-
-        document.getElementById('editPlayerModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeEditPlayerModal();
-            }
-        });
-
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('gameDate').value = today;
-            
-            displayPlayerList();
-            populatePlayerSelects();
-            displayRating();
-            displayHistory();
-            
-            // Добавляем первую игру по умолчанию
-            addGameToForm(false);
-        });
-    </script>
-</body>
+        <script src="script.js"></script>
+    </body>
 </html>
