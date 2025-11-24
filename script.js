@@ -38,121 +38,6 @@ function saveSeasonStats(stats) {
     localStorage.setItem('glickoSeasonStats', JSON.stringify(stats));
 }
 
-// Пересчет всех рейтингов с нуля
-function recalculateAllRatings() {
-    const players = getPlayers();
-    const games = getGames();
-    const seasonStats = getSeasonStats();
-
-    // Сбрасываем всех игроков к начальным значениям
-    Object.keys(players).forEach((playerName) => {
-        players[playerName] = {
-            rating: INITIAL_RATING,
-            rd: INITIAL_RD,
-            games: 0,
-            volatility: '0.0',
-            lastUpdate: 0,
-        };
-
-        // Инициализируем сезонную статистику если нужно
-        if (!seasonStats[playerName]) {
-            seasonStats[playerName] = {
-                games: 0,
-                tournaments: [],
-            };
-        } else {
-            // Сбрасываем сезонную статистику
-            seasonStats[playerName] = {
-                games: 0,
-                tournaments: [],
-            };
-        }
-    });
-
-    // Сортируем игры по дате (от старых к новым)
-    const sortedGames = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    // Обрабатываем все игры по порядку
-    sortedGames.forEach((game) => {
-        const currentTime = new Date(game.date).getTime();
-
-        // Добавляем турнир в сезонную статистику
-        if (game.type === 'BYE') {
-            const player = players[game.player1];
-            if (player) {
-                const updatedPlayer = updateRatingForBye(player, currentTime);
-                players[game.player1] = {
-                    ...player,
-                    ...updatedPlayer,
-                    games: player.games + 1,
-                    lastUpdate: currentTime,
-                };
-
-                // Обновляем сезонную статистику
-                if (seasonStats[game.player1]) {
-                    seasonStats[game.player1].games++;
-                    if (!seasonStats[game.player1].tournaments.includes(game.date)) {
-                        seasonStats[game.player1].tournaments.push(game.date);
-                    }
-                }
-            }
-        } else {
-            const player1 = players[game.player1];
-            const player2 = players[game.player2];
-
-            if (player1 && player2) {
-                const resultMap = { win: 1, loss: 0, draw: 0.5 };
-                const numResult1 = resultMap[game.result1];
-                const numResult2 = resultMap[game.result2];
-
-                const updatedPlayer1 = updateRating(
-                    player1,
-                    player2,
-                    numResult1,
-                    currentTime
-                );
-                players[game.player1] = {
-                    ...player1,
-                    ...updatedPlayer1,
-                    games: player1.games + 1,
-                    lastUpdate: currentTime,
-                };
-
-                const updatedPlayer2 = updateRating(
-                    player2,
-                    player1,
-                    numResult2,
-                    currentTime
-                );
-                players[game.player2] = {
-                    ...player2,
-                    ...updatedPlayer2,
-                    games: player2.games + 1,
-                    lastUpdate: currentTime,
-                };
-
-                // Обновляем сезонную статистику
-                if (seasonStats[game.player1]) {
-                    seasonStats[game.player1].games++;
-                    if (!seasonStats[game.player1].tournaments.includes(game.date)) {
-                        seasonStats[game.player1].tournaments.push(game.date);
-                    }
-                }
-                if (seasonStats[game.player2]) {
-                    seasonStats[game.player2].games++;
-                    if (!seasonStats[game.player2].tournaments.includes(game.date)) {
-                        seasonStats[game.player2].tournaments.push(game.date);
-                    }
-                }
-            }
-        }
-    });
-
-    savePlayers(players);
-    saveSeasonStats(seasonStats);
-    return players;
-}
-
 // Расчет g-функции для RD
 function g(RD) {
     return 1 / Math.sqrt(1 + (3 * Q * Q * RD * RD) / (Math.PI * Math.PI));
@@ -192,91 +77,195 @@ function calculateKFactor(player, opponent, result, expected) {
     return Math.min(kFactor, 50); // Максимальный предел
 }
 
-// Обновление рейтинга и RD после обычной игры
-function updateRating(player, opponent, result, currentTime) {
-    // Расчет времени с последнего обновления (в днях)
+// Точная версия updateRating без округления
+function updateRatingExact(player, opponent, result, currentTime) {
     const daysSinceLastUpdate = Math.max(
         (currentTime - player.lastUpdate) / (1000 * 60 * 60 * 24),
         0
     );
 
-    // Обновление RD с учетом времени
     const newRD = Math.min(
         Math.sqrt(player.rd * player.rd + C * C * daysSinceLastUpdate),
         INITIAL_RD
     );
 
-    // Расчет ожидаемого результата
     const E = expectedScore(player.rating, opponent.rating, newRD);
-
-    // Адаптивный K-фактор
     const kFactor = calculateKFactor(player, opponent, result, E);
-
-    // Расчет d^2
     const dSquared = 1 / (Q * Q * g(newRD) * g(newRD) * E * (1 - E));
 
-    // Расчет нового рейтинга
     const ratingChange = kFactor * (result - E);
-
-    // Ограничение максимального изменения для очень неожиданных результатов
     const limitedRatingChange = Math.max(Math.min(ratingChange, 100), -100);
 
+    // Используем точное значение без округления
     const newRating = player.rating + limitedRatingChange;
 
-    // Расчет нового RD
     const newRDAfterGame = Math.max(
         Math.sqrt(1 / (1 / (newRD * newRD) + 1 / dSquared)),
         MIN_RD
     );
 
-    // Расчет волатильности
     const volatility = (((player.rd - newRDAfterGame) / player.rd) * 100).toFixed(1);
 
     return {
-        rating: Math.round(newRating),
+        rating: newRating, // Не округляем здесь
         rd: Math.round(newRDAfterGame),
         ratingChange: Math.round(limitedRatingChange),
         volatility: volatility,
         expectedScore: E,
         kFactor: kFactor,
         lastUpdate: currentTime,
+        _exactRating: newRating, // Сохраняем точное значение
     };
 }
 
-// Обновление рейтинга для BYE (игры без соперника)
-function updateRatingForBye(player, currentTime) {
-    // Расчет времени с последнего обновления (в днях)
+// Точная версия для BYE
+function updateRatingForByeExact(player, currentTime) {
     const daysSinceLastUpdate = Math.max(
         (currentTime - player.lastUpdate) / (1000 * 60 * 60 * 24),
         0
     );
 
-    // Обновление RD с учетом времени
     const newRD = Math.min(
         Math.sqrt(player.rd * player.rd + C * C * daysSinceLastUpdate),
         INITIAL_RD
     );
 
-    // Для BYE игрок получает небольшую положительную корректировку и медленное уменьшение RD
-    const ratingChange = 5; // Небольшое положительное изменение
-
+    const ratingChange = 5;
     const newRating = player.rating + ratingChange;
-
-    // RD уменьшается медленнее для BYE
     const newRDAfterGame = Math.max(newRD * 0.95, MIN_RD);
-
-    // Расчет волатильности
     const volatility = (((player.rd - newRDAfterGame) / player.rd) * 100).toFixed(1);
 
     return {
-        rating: Math.round(newRating),
+        rating: newRating, // Не округляем здесь
         rd: Math.round(newRDAfterGame),
         ratingChange: ratingChange,
         volatility: volatility,
-        expectedScore: 1, // Для BYE ожидаемый результат всегда 1 (победа)
-        kFactor: 10, // Пониженный K-фактор для BYE
+        expectedScore: 1,
+        kFactor: 10,
         lastUpdate: currentTime,
+        _exactRating: newRating, // Сохраняем точное значение
     };
+}
+
+// Пересчет всех рейтингов с нуля (исправленная версия)
+function recalculateAllRatings() {
+    const players = getPlayers();
+    const games = getGames();
+    const seasonStats = getSeasonStats();
+
+    // Сбрасываем всех игроков к начальным значениям (сохраняем дробные части)
+    Object.keys(players).forEach((playerName) => {
+        players[playerName] = {
+            rating: INITIAL_RATING,
+            rd: INITIAL_RD,
+            games: 0,
+            volatility: '0.0',
+            lastUpdate: 0,
+            // Добавляем поле для точного расчета
+            _exactRating: INITIAL_RATING,
+        };
+
+        if (!seasonStats[playerName]) {
+            seasonStats[playerName] = {
+                games: 0,
+                tournaments: [],
+            };
+        } else {
+            seasonStats[playerName] = {
+                games: 0,
+                tournaments: [],
+            };
+        }
+    });
+
+    // Сортируем игры по дате (от старых к новым)
+    const sortedGames = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Обрабатываем все игры по порядку
+    sortedGames.forEach((game) => {
+        const currentTime = new Date(game.date).getTime();
+
+        if (game.type === 'BYE') {
+            const player = players[game.player1];
+            if (player) {
+                // Используем точные значения для расчета
+                const updatedPlayer = updateRatingForByeExact(player, currentTime);
+                players[game.player1] = {
+                    ...player,
+                    ...updatedPlayer,
+                    games: player.games + 1,
+                    lastUpdate: currentTime,
+                };
+
+                if (seasonStats[game.player1]) {
+                    seasonStats[game.player1].games++;
+                    if (!seasonStats[game.player1].tournaments.includes(game.date)) {
+                        seasonStats[game.player1].tournaments.push(game.date);
+                    }
+                }
+            }
+        } else {
+            const player1 = players[game.player1];
+            const player2 = players[game.player2];
+
+            if (player1 && player2) {
+                const resultMap = { win: 1, loss: 0, draw: 0.5 };
+                const numResult1 = resultMap[game.result1];
+                const numResult2 = resultMap[game.result2];
+
+                const updatedPlayer1 = updateRatingExact(
+                    player1,
+                    player2,
+                    numResult1,
+                    currentTime
+                );
+                players[game.player1] = {
+                    ...player1,
+                    ...updatedPlayer1,
+                    games: player1.games + 1,
+                    lastUpdate: currentTime,
+                };
+
+                const updatedPlayer2 = updateRatingExact(
+                    player2,
+                    player1,
+                    numResult2,
+                    currentTime
+                );
+                players[game.player2] = {
+                    ...player2,
+                    ...updatedPlayer2,
+                    games: player2.games + 1,
+                    lastUpdate: currentTime,
+                };
+
+                if (seasonStats[game.player1]) {
+                    seasonStats[game.player1].games++;
+                    if (!seasonStats[game.player1].tournaments.includes(game.date)) {
+                        seasonStats[game.player1].tournaments.push(game.date);
+                    }
+                }
+                if (seasonStats[game.player2]) {
+                    seasonStats[game.player2].games++;
+                    if (!seasonStats[game.player2].tournaments.includes(game.date)) {
+                        seasonStats[game.player2].tournaments.push(game.date);
+                    }
+                }
+            }
+        }
+    });
+
+    // Округляем финальные значения
+    Object.keys(players).forEach((playerName) => {
+        if (players[playerName]._exactRating !== undefined) {
+            players[playerName].rating = Math.round(players[playerName]._exactRating);
+            delete players[playerName]._exactRating;
+        }
+    });
+
+    savePlayers(players);
+    saveSeasonStats(seasonStats);
+    return players;
 }
 
 // Добавление нового игрока
@@ -478,7 +467,10 @@ function addGames(date, gamesData) {
 
         if (isBye) {
             // Обработка BYE игры
-            const updatedPlayer = updateRatingForBye(tempPlayers[player1], currentTime);
+            const updatedPlayer = updateRatingForByeExact(
+                tempPlayers[player1],
+                currentTime
+            );
             tempPlayers[player1] = {
                 ...tempPlayers[player1],
                 ...updatedPlayer,
@@ -527,7 +519,7 @@ function addGames(date, gamesData) {
             );
 
             // Обновляем рейтинги во временных данных
-            const updatedPlayer1 = updateRating(
+            const updatedPlayer1 = updateRatingExact(
                 tempPlayers[player1],
                 tempPlayers[player2],
                 numResult1,
@@ -540,7 +532,7 @@ function addGames(date, gamesData) {
                 lastUpdate: currentTime, // Добавляем время обновления
             };
 
-            const updatedPlayer2 = updateRating(
+            const updatedPlayer2 = updateRatingExact(
                 tempPlayers[player2],
                 tempPlayers[player1],
                 numResult2,
@@ -894,79 +886,6 @@ function switchTab(tabId) {
     event.target.classList.add('active');
 }
 
-// Открытие модального окна игрока (исправленная версия)
-// Открытие модального окна игрока (с круговой диаграммой)
-
-// Открытие модального окна игрока (с круговой диаграммой - исправленная версия)
-function openPlayerModal(playerName) {
-    const players = getPlayers();
-    const games = getGames();
-    const seasonStats = getSeasonStats();
-    const player = players[playerName];
-
-    if (!player) return;
-
-    const playerStats = seasonStats[playerName] || {
-        games: 0,
-        tournaments: [],
-    };
-    const tournamentsCount = Array.isArray(playerStats.tournaments)
-        ? playerStats.tournaments.length
-        : 0;
-    const avgGamesPerTournament =
-        tournamentsCount > 0 ? (playerStats.games / tournamentsCount).toFixed(1) : 0;
-
-    // Заполняем основную информацию
-    document.getElementById('modalPlayerName').textContent = playerName;
-    document.getElementById('modalPlayerRating').textContent = player.rating;
-    document.getElementById('modalPlayerRD').textContent = player.rd;
-    document.getElementById('modalTotalGames').textContent = playerStats.games;
-    document.getElementById('modalTournamentsCount').textContent = tournamentsCount;
-    document.getElementById('modalAvgGamesPerTournament').textContent =
-        avgGamesPerTournament;
-
-    // ПЕРЕСЧИТЫВАЕМ статистику по играм на основе актуальных данных
-    const playerGames = games.filter(
-        (game) => game.player1 === playerName || game.player2 === playerName
-    );
-
-    let wins = 0;
-    let losses = 0;
-    let draws = 0;
-    let totalPlayerGames = 0;
-
-    playerGames.forEach((game) => {
-        if (game.player1 === playerName) {
-            totalPlayerGames++;
-            if (game.result1 === 'win') wins++;
-            else if (game.result1 === 'loss') losses++;
-            else if (game.result1 === 'draw') draws++;
-        } else if (game.player2 === playerName) {
-            totalPlayerGames++;
-            if (game.result2 === 'win') wins++;
-            else if (game.result2 === 'loss') losses++;
-            else if (game.result2 === 'draw') draws++;
-        }
-    });
-
-    // Обновляем отображаемое количество игр на основе актуальных данных
-    document.getElementById('modalTotalGames').textContent = totalPlayerGames;
-
-    // Заполняем статистику для сброса
-    document.getElementById('resetGamesCount').textContent = playerStats.games;
-    document.getElementById('resetTournamentsCount').textContent = tournamentsCount;
-
-    // ОТОБРАЖАЕМ КРУГОВУЮ ДИАГРАММУ
-    displayWinChart(playerName, wins, losses, draws, totalPlayerGames);
-
-    // Заполняем статистику по турнирам и соперникам
-    displayTournamentStats(playerName, games);
-    displayOpponentStats(playerName, games);
-
-    // Показываем модальное окно
-    document.getElementById('playerModal').style.display = 'flex';
-}
-
 // Функция для отображения круговой диаграммы
 function displayWinChart(playerName, wins, losses, draws, totalGames) {
     const statsTab = document.getElementById('stats-tab');
@@ -1047,6 +966,76 @@ function displayWinChart(playerName, wins, losses, draws, totalGames) {
     // Вставляем диаграмму после статистики игрока
     const playerStats = document.querySelector('.player-stats');
     statsTab.insertBefore(winStatsContainer, playerStats.nextSibling);
+}
+
+// Открытие модального окна игрока (с круговой диаграммой - исправленная версия)
+function openPlayerModal(playerName) {
+    const players = getPlayers();
+    const games = getGames();
+    const seasonStats = getSeasonStats();
+    const player = players[playerName];
+
+    if (!player) return;
+
+    const playerStats = seasonStats[playerName] || {
+        games: 0,
+        tournaments: [],
+    };
+    const tournamentsCount = Array.isArray(playerStats.tournaments)
+        ? playerStats.tournaments.length
+        : 0;
+    const avgGamesPerTournament =
+        tournamentsCount > 0 ? (playerStats.games / tournamentsCount).toFixed(1) : 0;
+
+    // Заполняем основную информацию
+    document.getElementById('modalPlayerName').textContent = playerName;
+    document.getElementById('modalPlayerRating').textContent = player.rating;
+    document.getElementById('modalPlayerRD').textContent = player.rd;
+    document.getElementById('modalTotalGames').textContent = playerStats.games;
+    document.getElementById('modalTournamentsCount').textContent = tournamentsCount;
+    document.getElementById('modalAvgGamesPerTournament').textContent =
+        avgGamesPerTournament;
+
+    // ПЕРЕСЧИТЫВАЕМ статистику по играм на основе актуальных данных
+    const playerGames = games.filter(
+        (game) => game.player1 === playerName || game.player2 === playerName
+    );
+
+    let wins = 0;
+    let losses = 0;
+    let draws = 0;
+    let totalPlayerGames = 0;
+
+    playerGames.forEach((game) => {
+        if (game.player1 === playerName) {
+            totalPlayerGames++;
+            if (game.result1 === 'win') wins++;
+            else if (game.result1 === 'loss') losses++;
+            else if (game.result1 === 'draw') draws++;
+        } else if (game.player2 === playerName) {
+            totalPlayerGames++;
+            if (game.result2 === 'win') wins++;
+            else if (game.result2 === 'loss') losses++;
+            else if (game.result2 === 'draw') draws++;
+        }
+    });
+
+    // Обновляем отображаемое количество игр на основе актуальных данных
+    document.getElementById('modalTotalGames').textContent = totalPlayerGames;
+
+    // Заполняем статистику для сброса
+    document.getElementById('resetGamesCount').textContent = playerStats.games;
+    document.getElementById('resetTournamentsCount').textContent = tournamentsCount;
+
+    // ОТОБРАЖАЕМ КРУГОВУЮ ДИАГРАММУ
+    displayWinChart(playerName, wins, losses, draws, totalPlayerGames);
+
+    // Заполняем статистику по турнирам и соперникам
+    displayTournamentStats(playerName, games);
+    displayOpponentStats(playerName, games);
+
+    // Показываем модальное окно
+    document.getElementById('playerModal').style.display = 'flex';
 }
 
 // Отображение статистики по турнирам (исправленная версия)
