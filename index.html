@@ -139,6 +139,13 @@
             </div>
         </div>
 
+        <div class="season-info" id="seasonInfo">
+            <span class="season-info-text">Загрузка информации о сезоне...</span>
+            <div class="season-info-actions">
+                <button class="secondary" onclick="resetSeason()">Сбросить сезон</button>
+            </div>
+        </div>
+
         <!-- Модальное окно игрока -->
         <div id="playerModal" class="modal-overlay" style="display: none">
             <div class="player-modal">
@@ -382,6 +389,34 @@
                         onclick="closeTournamentModal()"
                     >
                         Закрыть
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Модальное окно выбора даты начала сезона -->
+        <div id="seasonDatePickerModal" class="modal-overlay" style="display: none">
+            <div class="edit-game-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">Сброс сезона</h2>
+                    <button class="close-modal" onclick="cancelSeasonReset()">×</button>
+                </div>
+
+                <div class="warning-box" style="margin-bottom: 15px">
+                    <strong>Внимание!</strong> После сброса сезона будут учитываться
+                    только игры, проведенные после выбранной даты.
+                </div>
+
+                <div class="form-group">
+                    <label for="seasonResetDate">Дата начала нового сезона:</label>
+                    <input type="date" id="seasonResetDate" required />
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="secondary" onclick="cancelSeasonReset()">
+                        Отмена
+                    </button>
+                    <button type="button" class="warning" onclick="confirmSeasonReset()">
+                        Сбросить сезон
                     </button>
                 </div>
             </div>

@@ -183,6 +183,33 @@ button.success:hover {
     cursor: pointer;
 }
 
+/* Информация о сезоне */
+.season-info {
+    background: #e8f4fc;
+    border-left: 4px solid var(--primary);
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.season-info-text {
+    color: var(--dark);
+}
+
+.season-info-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.season-info-actions button {
+    padding: 5px 10px;
+    font-size: 0.9em;
+}
+
 .edit-btn {
     background: var(--primary);
     color: white;

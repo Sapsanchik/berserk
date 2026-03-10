@@ -22,6 +22,11 @@ function getSeasonStats() {
     return stats ? JSON.parse(stats) : {};
 }
 
+function getSeasonSettings() {
+    const settings = localStorage.getItem('glickoSeasonSettings');
+    return settings ? JSON.parse(settings) : { seasonStartDate: null };
+}
+
 function savePlayers(players) {
     localStorage.setItem('glickoPlayers', JSON.stringify(players));
 }
@@ -32,6 +37,135 @@ function saveGames(games) {
 
 function saveSeasonStats(stats) {
     localStorage.setItem('glickoSeasonStats', JSON.stringify(stats));
+}
+
+function saveSeasonSettings(settings) {
+    localStorage.setItem('glickoSeasonSettings', JSON.stringify(settings));
+}
+
+// Новая функция для установки даты начала сезона
+function setSeasonStartDate(date) {
+    const settings = getSeasonSettings();
+    settings.seasonStartDate = date;
+    saveSeasonSettings(settings);
+    recalculateSeasonStats();
+    displayPlayerList();
+    displayRating();
+    displayHistory();
+}
+
+// Новая функция для сброса сезона по дате
+function resetSeasonByDate(resetDate) {
+    const settings = getSeasonSettings();
+    settings.seasonStartDate = resetDate;
+    saveSeasonSettings(settings);
+
+    // Пересчитываем сезонную статистику на основе новой даты
+    recalculateSeasonStats();
+
+    displayPlayerList();
+    displayRating();
+    displayHistory();
+
+    // Закрываем модальное окно, если оно открыто
+    const datePickerModal = document.getElementById('seasonDatePickerModal');
+    if (datePickerModal) {
+        datePickerModal.style.display = 'none';
+    }
+
+    alert(
+        `Сезон сброшен. Учитываются игры с ${new Date(resetDate).toLocaleDateString(
+            'ru-RU'
+        )}`
+    );
+}
+
+// Новая функция для пересчета сезонной статистики на основе даты
+function recalculateSeasonStats() {
+    const settings = getSeasonSettings();
+    const games = getGames();
+    const seasonStartDate = settings.seasonStartDate;
+
+    // Если дата начала сезона не установлена, используем все игры
+    if (!seasonStartDate) {
+        const allStats = {};
+        games.forEach((game) => {
+            if (game.type === 'BYE') {
+                if (!allStats[game.player1]) {
+                    allStats[game.player1] = { games: 0, tournaments: [] };
+                }
+                allStats[game.player1].games++;
+                if (!allStats[game.player1].tournaments.includes(game.date)) {
+                    allStats[game.player1].tournaments.push(game.date);
+                }
+            } else {
+                if (!allStats[game.player1]) {
+                    allStats[game.player1] = { games: 0, tournaments: [] };
+                }
+                allStats[game.player1].games++;
+                if (!allStats[game.player1].tournaments.includes(game.date)) {
+                    allStats[game.player1].tournaments.push(game.date);
+                }
+
+                if (!allStats[game.player2]) {
+                    allStats[game.player2] = { games: 0, tournaments: [] };
+                }
+                allStats[game.player2].games++;
+                if (!allStats[game.player2].tournaments.includes(game.date)) {
+                    allStats[game.player2].tournaments.push(game.date);
+                }
+            }
+        });
+        saveSeasonStats(allStats);
+        return;
+    }
+
+    // Фильтруем игры по дате начала сезона
+    const startTime = new Date(seasonStartDate).getTime();
+    const seasonGames = games.filter(
+        (game) => new Date(game.date).getTime() >= startTime
+    );
+
+    // Пересчитываем статистику
+    const seasonStats = {};
+
+    seasonGames.forEach((game) => {
+        if (game.type === 'BYE') {
+            if (!seasonStats[game.player1]) {
+                seasonStats[game.player1] = { games: 0, tournaments: [] };
+            }
+            seasonStats[game.player1].games++;
+            if (!seasonStats[game.player1].tournaments.includes(game.date)) {
+                seasonStats[game.player1].tournaments.push(game.date);
+            }
+        } else {
+            if (!seasonStats[game.player1]) {
+                seasonStats[game.player1] = { games: 0, tournaments: [] };
+            }
+            seasonStats[game.player1].games++;
+            if (!seasonStats[game.player1].tournaments.includes(game.date)) {
+                seasonStats[game.player1].tournaments.push(game.date);
+            }
+
+            if (!seasonStats[game.player2]) {
+                seasonStats[game.player2] = { games: 0, tournaments: [] };
+            }
+            seasonStats[game.player2].games++;
+            if (!seasonStats[game.player2].tournaments.includes(game.date)) {
+                seasonStats[game.player2].tournaments.push(game.date);
+            }
+        }
+    });
+
+    // Добавляем игроков без игр в сезоне
+    const players = getPlayers();
+    Object.keys(players).forEach((playerName) => {
+        if (!seasonStats[playerName]) {
+            seasonStats[playerName] = { games: 0, tournaments: [] };
+        }
+    });
+
+    saveSeasonStats(seasonStats);
 }
 
 function g(RD) {
@@ -123,7 +257,8 @@ function updateRatingForByeExact(player, currentTime) {
 function recalculateAllRatings() {
     const players = getPlayers();
     const games = getGames();
-    const seasonStats = getSeasonStats();
+    const settings = getSeasonSettings();
+
     Object.keys(players).forEach((playerName) => {
         players[playerName] = {
             rating: INITIAL_RATING,
@@ -133,12 +268,8 @@ function recalculateAllRatings() {
             lastUpdate: 0,
             _exactRating: INITIAL_RATING,
         };
-        if (!seasonStats[playerName]) {
-            seasonStats[playerName] = { games: 0, tournaments: [] };
-        } else {
-            seasonStats[playerName] = { games: 0, tournaments: [] };
-        }
     });
+
     const sortedGames = [...games].sort((a, b) => new Date(a.date) - new Date(b.date));
     sortedGames.forEach((game) => {
         const currentTime = new Date(game.date).getTime();
@@ -152,12 +283,6 @@ function recalculateAllRatings() {
                     games: player.games + 1,
                     lastUpdate: currentTime,
                 };
-                if (seasonStats[game.player1]) {
-                    seasonStats[game.player1].games++;
-                    if (!seasonStats[game.player1].tournaments.includes(game.date)) {
-                        seasonStats[game.player1].tournaments.push(game.date);
-                    }
-                }
             }
         } else {
             const player1 = players[game.player1];
@@ -190,35 +315,27 @@ function recalculateAllRatings() {
                     games: player2.games + 1,
                     lastUpdate: currentTime,
                 };
-                if (seasonStats[game.player1]) {
-                    seasonStats[game.player1].games++;
-                    if (!seasonStats[game.player1].tournaments.includes(game.date)) {
-                        seasonStats[game.player1].tournaments.push(game.date);
-                    }
-                }
-                if (seasonStats[game.player2]) {
-                    seasonStats[game.player2].games++;
-                    if (!seasonStats[game.player2].tournaments.includes(game.date)) {
-                        seasonStats[game.player2].tournaments.push(game.date);
-                    }
-                }
             }
         }
     });
+
     Object.keys(players).forEach((playerName) => {
         if (players[playerName]._exactRating !== undefined) {
             players[playerName].rating = Math.round(players[playerName]._exactRating);
             delete players[playerName]._exactRating;
         }
     });
+
     savePlayers(players);
-    saveSeasonStats(seasonStats);
+
+    // Пересчитываем сезонную статистику
+    recalculateSeasonStats();
+
     return players;
 }
 
 function addPlayer(name) {
     const players = getPlayers();
-    const seasonStats = getSeasonStats();
     if (players[name]) {
         alert('Игрок с таким именем уже существует!');
         return false;
@@ -230,9 +347,11 @@ function addPlayer(name) {
         volatility: '0.0',
         lastUpdate: Date.now(),
     };
-    seasonStats[name] = { games: 0, tournaments: [] };
     savePlayers(players);
-    saveSeasonStats(seasonStats);
+
+    // Пересчитываем сезонную статистику
+    recalculateSeasonStats();
+
     return true;
 }
 
@@ -362,19 +481,17 @@ function isByeGame(gameElement) {
 function addGames(date, gamesData) {
     const players = getPlayers();
     const games = getGames();
-    const seasonStats = getSeasonStats();
     const currentTime = new Date(date).getTime();
     const tempPlayers = JSON.parse(JSON.stringify(players));
-    const tempSeasonStats = JSON.parse(JSON.stringify(seasonStats));
+
     gamesData.forEach((gameData) => {
         const { player1, player2, result1, result2, isBye } = gameData;
+
         if (!tempPlayers[player1]) {
             alert(`Игрок не найден: ${player1}`);
             return false;
         }
-        if (!tempSeasonStats[player1]) {
-            tempSeasonStats[player1] = { games: 0, tournaments: [] };
-        }
+
         if (isBye) {
             const updatedPlayer = updateRatingForByeExact(
                 tempPlayers[player1],
@@ -386,10 +503,7 @@ function addGames(date, gamesData) {
                 games: tempPlayers[player1].games + 1,
                 lastUpdate: currentTime,
             };
-            tempSeasonStats[player1].games++;
-            if (!tempSeasonStats[player1].tournaments.includes(date)) {
-                tempSeasonStats[player1].tournaments.push(date);
-            }
+
             games.unshift({
                 date: date,
                 type: 'BYE',
@@ -408,15 +522,14 @@ function addGames(date, gamesData) {
                 alert(`Игрок не найден: ${player2}`);
                 return false;
             }
-            if (!tempSeasonStats[player2]) {
-                tempSeasonStats[player2] = { games: 0, tournaments: [] };
-            }
+
             const resultMap = { win: 1, loss: 0, draw: 0.5 };
             const numResult1 = resultMap[result1];
             const numResult2 = resultMap[result2];
             const ratingDiff = Math.abs(
                 tempPlayers[player1].rating - tempPlayers[player2].rating
             );
+
             const updatedPlayer1 = updateRatingExact(
                 tempPlayers[player1],
                 tempPlayers[player2],
@@ -429,6 +542,7 @@ function addGames(date, gamesData) {
                 games: tempPlayers[player1].games + 1,
                 lastUpdate: currentTime,
             };
+
             const updatedPlayer2 = updateRatingExact(
                 tempPlayers[player2],
                 tempPlayers[player1],
@@ -441,14 +555,7 @@ function addGames(date, gamesData) {
                 games: tempPlayers[player2].games + 1,
                 lastUpdate: currentTime,
             };
-            tempSeasonStats[player1].games++;
-            tempSeasonStats[player2].games++;
-            if (!tempSeasonStats[player1].tournaments.includes(date)) {
-                tempSeasonStats[player1].tournaments.push(date);
-            }
-            if (!tempSeasonStats[player2].tournaments.includes(date)) {
-                tempSeasonStats[player2].tournaments.push(date);
-            }
+
             games.unshift({
                 date: date,
                 type: 'Обычная',
@@ -464,26 +571,35 @@ function addGames(date, gamesData) {
             });
         }
     });
+
     savePlayers(tempPlayers);
     saveGames(games);
-    saveSeasonStats(tempSeasonStats);
+
+    // Пересчитываем сезонную статистику
+    recalculateSeasonStats();
+
     return true;
 }
 
 function displayPlayerList() {
     const players = getPlayers();
     const seasonStats = getSeasonStats();
+    const settings = getSeasonSettings();
     const playerList = document.getElementById('playerList');
+
     playerList.innerHTML = '';
+
     if (Object.keys(players).length === 0) {
         playerList.innerHTML = '<p>Нет добавленных игроков</p>';
         return;
     }
+
     Object.entries(players).forEach(([name, data]) => {
         const playerStats = seasonStats[name] || { games: 0, tournaments: [] };
         const tournamentsCount = Array.isArray(playerStats.tournaments)
             ? playerStats.tournaments.length
             : 0;
+
         const playerItem = document.createElement('div');
         playerItem.className = 'player-item';
         playerItem.innerHTML = `
@@ -500,6 +616,18 @@ function displayPlayerList() {
     `;
         playerList.appendChild(playerItem);
     });
+
+    // Отображаем информацию о дате начала сезона
+    const seasonInfo = document.getElementById('seasonInfo');
+    if (seasonInfo) {
+        if (settings.seasonStartDate) {
+            seasonInfo.innerHTML = `Сезон учитывает игры с <strong>${new Date(
+                settings.seasonStartDate
+            ).toLocaleDateString('ru-RU')}</strong>`;
+        } else {
+            seasonInfo.innerHTML = 'Сезон учитывает все игры';
+        }
+    }
 }
 
 function populatePlayerSelects() {
@@ -508,16 +636,20 @@ function populatePlayerSelects() {
     gameEntries.forEach((entry) => {
         populateGameSelects(entry);
     });
+
     const editPlayer1Select = document.getElementById('editPlayer1Select');
     const editPlayer2Select = document.getElementById('editPlayer2Select');
+
     if (editPlayer1Select) {
         editPlayer1Select.innerHTML = '<option value="">Выберите игрока 1</option>';
         editPlayer2Select.innerHTML = '<option value="">Выберите игрока 2</option>';
+
         Object.keys(players).forEach((name) => {
             const option1 = document.createElement('option');
             option1.value = name;
             option1.textContent = name;
             editPlayer1Select.appendChild(option1);
+
             const option2 = document.createElement('option');
             option2.value = name;
             option2.textContent = name;
@@ -528,12 +660,13 @@ function populatePlayerSelects() {
 
 function sortPlayers(players, sortBy, sortOrder) {
     const sortedPlayers = Object.entries(players);
+    const seasonStats = getSeasonStats();
+
     switch (sortBy) {
         case 'rating':
             sortedPlayers.sort((a, b) => b[1].rating - a[1].rating);
             break;
         case 'games':
-            const seasonStats = getSeasonStats();
             sortedPlayers.sort((a, b) => {
                 const gamesA = seasonStats[a[0]] ? seasonStats[a[0]].games : 0;
                 const gamesB = seasonStats[b[0]] ? seasonStats[b[0]].games : 0;
@@ -541,10 +674,13 @@ function sortPlayers(players, sortBy, sortOrder) {
             });
             break;
         case 'tournaments':
-            const stats = getSeasonStats();
             sortedPlayers.sort((a, b) => {
-                const tournamentsA = stats[a[0]] ? stats[a[0]].tournaments.length : 0;
-                const tournamentsB = stats[b[0]] ? stats[b[0]].tournaments.length : 0;
+                const tournamentsA = seasonStats[a[0]]
+                    ? seasonStats[a[0]].tournaments.length
+                    : 0;
+                const tournamentsB = seasonStats[b[0]]
+                    ? seasonStats[b[0]].tournaments.length
+                    : 0;
                 return tournamentsB - tournamentsA;
             });
             break;
@@ -557,9 +693,11 @@ function sortPlayers(players, sortBy, sortOrder) {
         default:
             sortedPlayers.sort((a, b) => b[1].rating - a[1].rating);
     }
+
     if (sortOrder === 'asc') {
         sortedPlayers.reverse();
     }
+
     return sortedPlayers;
 }
 
@@ -567,26 +705,33 @@ function displayRating() {
     const players = getPlayers();
     const seasonStats = getSeasonStats();
     const ratingBody = document.getElementById('ratingBody');
+
     ratingBody.innerHTML = '';
+
     if (Object.keys(players).length === 0) {
         ratingBody.innerHTML =
             '<tr><td colspan="7" style="text-align: center;">Нет данных о рейтинге</td></tr>';
         return;
     }
+
     const sortBy = document.getElementById('sortBy').value;
     const sortOrder = document.getElementById('sortOrder').value;
     currentSort = { field: sortBy, order: sortOrder };
+
     const sortedPlayers = sortPlayers(players, sortBy, sortOrder);
+
     sortedPlayers.forEach(([name, data], index) => {
         const playerStats = seasonStats[name] || { games: 0, tournaments: [] };
         const tournamentsCount = Array.isArray(playerStats.tournaments)
             ? playerStats.tournaments.length
             : 0;
         const roundedRating = Math.round(data.rating);
+
         let lastUpdate = 'Никогда';
         if (data.lastUpdate && data.lastUpdate > 0) {
             lastUpdate = new Date(data.lastUpdate).toLocaleDateString('ru-RU');
         }
+
         const row = document.createElement('tr');
         row.innerHTML = `
         <td class="position-number">${index + 1}</td>
@@ -599,6 +744,7 @@ function displayRating() {
     `;
         ratingBody.appendChild(row);
     });
+
     updateSortHeaders();
 }
 
@@ -625,6 +771,7 @@ function setupSorting() {
             displayRating();
         });
     });
+
     document.getElementById('sortBy').addEventListener('change', displayRating);
     document.getElementById('sortOrder').addEventListener('change', displayRating);
 }
@@ -632,12 +779,15 @@ function setupSorting() {
 function displayHistory() {
     const games = getGames();
     const historyBody = document.getElementById('historyBody');
+
     historyBody.innerHTML = '';
+
     if (games.length === 0) {
         historyBody.innerHTML =
             '<tr><td colspan="8" style="text-align: center;">Нет истории игр</td></tr>';
         return;
     }
+
     games.forEach((game, index) => {
         const row = document.createElement('tr');
         const typeClass = game.type === 'BYE' ? 'warning-text' : '';
@@ -654,6 +804,7 @@ function displayHistory() {
                 : game.result2 === 'loss'
                 ? 'negative'
                 : '';
+
         const change1 =
             game.ratingChange1 > 0 ? `+${game.ratingChange1}` : game.ratingChange1;
         const change2 =
@@ -670,6 +821,7 @@ function displayHistory() {
                 : game.ratingChange2 < 0
                 ? 'negative'
                 : '';
+
         row.innerHTML = `
         <td>${game.date}</td>
         <td><span class="${typeClass} game-type-badge ${typeBadge}">${
@@ -724,6 +876,7 @@ function displayWinChart(playerName, wins, losses, draws, totalGames) {
     const statsTab = document.getElementById('stats-tab');
     const oldChart = document.getElementById('winStatsChart');
     if (oldChart) oldChart.remove();
+
     if (totalGames === 0) {
         const noGamesMsg = document.createElement('div');
         noGamesMsg.className = 'no-tournaments';
@@ -736,9 +889,11 @@ function displayWinChart(playerName, wins, losses, draws, totalGames) {
         );
         return;
     }
+
     const winPercent = Math.round((wins / totalGames) * 100);
     const lossPercent = Math.round((losses / totalGames) * 100);
     const drawPercent = Math.round((draws / totalGames) * 100);
+
     const winStatsContainer = document.createElement('div');
     winStatsContainer.id = 'winStatsChart';
     winStatsContainer.className = 'win-stats';
@@ -784,6 +939,7 @@ function displayWinChart(playerName, wins, losses, draws, totalGames) {
             </div>
         </div>
     `;
+
     const playerStats = document.querySelector('.player-stats');
     statsTab.insertBefore(winStatsContainer, playerStats.nextSibling);
 }
@@ -792,8 +948,11 @@ function openPlayerModal(playerName) {
     const players = getPlayers();
     const games = getGames();
     const seasonStats = getSeasonStats();
+    const settings = getSeasonSettings();
     const player = players[playerName];
+
     if (!player) return;
+
     const playerStats = seasonStats[playerName] || { games: 0, tournaments: [] };
     const tournamentsCount = Array.isArray(playerStats.tournaments)
         ? playerStats.tournaments.length
@@ -801,6 +960,7 @@ function openPlayerModal(playerName) {
     const avgGamesPerTournament =
         tournamentsCount > 0 ? (playerStats.games / tournamentsCount).toFixed(1) : 0;
     const roundedRating = Math.round(player.rating);
+
     document.getElementById('modalPlayerName').textContent = playerName;
     document.getElementById('modalPlayerRating').textContent = roundedRating;
     document.getElementById('modalPlayerRD').textContent = player.rd;
@@ -808,13 +968,16 @@ function openPlayerModal(playerName) {
     document.getElementById('modalTournamentsCount').textContent = tournamentsCount;
     document.getElementById('modalAvgGamesPerTournament').textContent =
         avgGamesPerTournament;
+
     const playerGames = games.filter(
         (game) => game.player1 === playerName || game.player2 === playerName
     );
+
     let wins = 0,
         losses = 0,
         draws = 0,
         totalPlayerGames = 0;
+
     playerGames.forEach((game) => {
         if (game.player1 === playerName) {
             totalPlayerGames++;
@@ -828,19 +991,24 @@ function openPlayerModal(playerName) {
             else if (game.result2 === 'draw') draws++;
         }
     });
+
     document.getElementById('modalTotalGames').textContent = totalPlayerGames;
     document.getElementById('resetGamesCount').textContent = playerStats.games;
     document.getElementById('resetTournamentsCount').textContent = tournamentsCount;
+
     displayWinChart(playerName, wins, losses, draws, totalPlayerGames);
     displayTournamentStats(playerName, games);
     displayOpponentStats(playerName, games);
+
     document.getElementById('playerModal').style.display = 'flex';
 }
 
 function displayTournamentStats(playerName, games) {
     const tournamentStatsContainer = document.getElementById('tournamentStats');
     tournamentStatsContainer.innerHTML = '';
+
     const tournaments = {};
+
     games.forEach((game) => {
         if (game.player1 === playerName || game.player2 === playerName) {
             const date = game.date;
@@ -848,22 +1016,27 @@ function displayTournamentStats(playerName, games) {
             tournaments[date].push(game);
         }
     });
+
     if (Object.keys(tournaments).length === 0) {
         tournamentStatsContainer.innerHTML =
             '<div class="no-tournaments">Нет данных о турнирах</div>';
         return;
     }
+
     const sortedTournaments = Object.entries(tournaments).sort(
         (a, b) => new Date(b[0]) - new Date(a[0])
     );
+
     sortedTournaments.forEach(([date, tournamentGames]) => {
         const tournamentRow = document.createElement('div');
         tournamentRow.className = 'tournament-row';
         tournamentRow.onclick = () => openTournamentModal(date);
+
         let wins = 0,
             losses = 0,
             draws = 0,
             ratingChange = 0;
+
         tournamentGames.forEach((game) => {
             if (game.player1 === playerName) {
                 if (game.result1 === 'win') wins++;
@@ -877,8 +1050,10 @@ function displayTournamentStats(playerName, games) {
                 ratingChange += game.ratingChange2 || 0;
             }
         });
+
         const totalGames = wins + losses + draws;
         const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+
         tournamentRow.innerHTML = `
         <div class="tournament-header">
             <span>Турнир ${date}</span>
@@ -918,7 +1093,9 @@ function displayTournamentStats(playerName, games) {
 function displayOpponentStats(playerName, games) {
     const opponentStatsContainer = document.getElementById('opponentStats');
     opponentStatsContainer.innerHTML = '';
+
     const opponentStats = {};
+
     games.forEach((game) => {
         let opponent, result;
         if (game.player1 === playerName) {
@@ -928,18 +1105,23 @@ function displayOpponentStats(playerName, games) {
             opponent = game.player1;
             result = game.result2;
         } else return;
+
         if (opponent === 'BYE') return;
+
         if (!opponentStats[opponent])
             opponentStats[opponent] = { wins: 0, losses: 0, draws: 0 };
+
         if (result === 'win') opponentStats[opponent].wins++;
         else if (result === 'loss') opponentStats[opponent].losses++;
         else if (result === 'draw') opponentStats[opponent].draws++;
     });
+
     if (Object.keys(opponentStats).length === 0) {
         opponentStatsContainer.innerHTML =
             '<div class="no-opponents">Нет данных о играх с другими игроками</div>';
         return;
     }
+
     Object.entries(opponentStats).forEach(([opponent, stats]) => {
         const totalGames = stats.wins + stats.losses + stats.draws;
         const row = document.createElement('div');
@@ -973,10 +1155,13 @@ function openTournamentModal(date) {
     const games = getGames();
     const tournamentGames = games.filter((game) => game.date === date);
     currentTournamentDate = date;
+
     document.getElementById('tournamentModalTitle').textContent = `Турнир ${date}`;
     document.getElementById('editTournamentDate').value = date;
+
     const gamesList = document.getElementById('tournamentGamesList');
     gamesList.innerHTML = '';
+
     if (tournamentGames.length === 0) {
         gamesList.innerHTML = '<div class="no-tournaments">Нет игр в этом турнире</div>';
     } else {
@@ -984,6 +1169,7 @@ function openTournamentModal(date) {
             const gameItem = document.createElement('div');
             gameItem.className = 'tournament-game-item';
             const globalIndex = games.findIndex((g) => g === game);
+
             if (game.type === 'BYE') {
                 gameItem.innerHTML = `
                     <div class="tournament-game-players">
@@ -1010,6 +1196,7 @@ function openTournamentModal(date) {
                         : game.result2 === 'loss'
                         ? 'negative'
                         : '';
+
                 gameItem.innerHTML = `
                     <div class="tournament-game-players">
                         <span><strong>${game.player1}</strong> vs <strong>${
@@ -1034,6 +1221,7 @@ function openTournamentModal(date) {
             gamesList.appendChild(gameItem);
         });
     }
+
     document.getElementById('tournamentModal').style.display = 'flex';
 }
 
@@ -1045,22 +1233,27 @@ function closeTournamentModal() {
 function updateTournamentDate() {
     const oldDate = currentTournamentDate;
     const newDate = document.getElementById('editTournamentDate').value;
+
     if (!newDate) {
         alert('Пожалуйста, введите дату');
         return;
     }
+
     if (oldDate === newDate) {
         alert('Дата не изменилась');
         return;
     }
+
     const games = getGames();
     let updated = false;
+
     games.forEach((game) => {
         if (game.date === oldDate) {
             game.date = newDate;
             updated = true;
         }
     });
+
     if (updated) {
         saveGames(games);
         recalculateAllRatings();
@@ -1074,13 +1267,16 @@ function updateTournamentDate() {
 
 function deleteGameFromTournament(globalIndex) {
     if (!confirm('Вы уверены, что хотите удалить эту игру?')) return;
+
     const games = getGames();
     if (globalIndex >= 0 && globalIndex < games.length) {
         const gameToDelete = games[globalIndex];
         games.splice(globalIndex, 1);
         saveGames(games);
         recalculateAllRatings();
+
         if (currentTournamentDate) openTournamentModal(currentTournamentDate);
+
         const modalPlayerName = document.getElementById('modalPlayerName').textContent;
         if (
             document.getElementById('playerModal').style.display === 'flex' &&
@@ -1089,6 +1285,7 @@ function deleteGameFromTournament(globalIndex) {
         ) {
             openPlayerModal(modalPlayerName);
         }
+
         displayRating();
         displayHistory();
         displayPlayerList();
@@ -1098,6 +1295,7 @@ function deleteGameFromTournament(globalIndex) {
 
 function recalculateTournament() {
     if (!currentTournamentDate) return;
+
     if (
         confirm(
             `Пересчитать все рейтинги для турнира ${currentTournamentDate}? Это может занять некоторое время.`
@@ -1111,6 +1309,7 @@ function recalculateTournament() {
 
 function deleteTournament() {
     if (!currentTournamentDate) return;
+
     if (
         confirm(
             `Вы уверены, что хотите удалить весь турнир ${currentTournamentDate}? Это действие нельзя отменить.`
@@ -1145,45 +1344,70 @@ function resetPlayerSeasonPrompt(playerName, event) {
 
 function resetPlayerSeason(playerName = null) {
     if (!playerName) playerName = document.getElementById('modalPlayerName').textContent;
-    const seasonStats = getSeasonStats();
-    if (seasonStats[playerName]) seasonStats[playerName] = { games: 0, tournaments: [] };
-    saveSeasonStats(seasonStats);
+
+    // Обновляем статистику игрока на основе даты начала сезона
+    recalculateSeasonStats();
+
     displayPlayerList();
     displayRating();
+
     if (document.getElementById('playerModal').style.display === 'flex')
         openPlayerModal(playerName);
+
     alert(`Сезонная статистика игрока "${playerName}" сброшена`);
 }
 
 function resetSeason() {
-    if (
-        !confirm(
-            'Сбросить сезонную статистику для всех игроков? Это обнулит количество игр и турниров для награждения в конце сезона.'
-        )
-    )
+    // Показываем модальное окно с выбором даты
+    const datePickerModal = document.getElementById('seasonDatePickerModal');
+    const dateInput = document.getElementById('seasonResetDate');
+
+    // Устанавливаем текущую дату по умолчанию
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+
+    datePickerModal.style.display = 'flex';
+}
+
+function confirmSeasonReset() {
+    const resetDate = document.getElementById('seasonResetDate').value;
+
+    if (!resetDate) {
+        alert('Пожалуйста, выберите дату начала сезона');
         return;
-    const seasonStats = getSeasonStats();
-    Object.keys(seasonStats).forEach((playerName) => {
-        seasonStats[playerName] = { games: 0, tournaments: [] };
-    });
-    saveSeasonStats(seasonStats);
-    displayPlayerList();
-    displayRating();
-    alert('Сезонная статистика для всех игроков сброшена');
+    }
+
+    if (
+        confirm(
+            `Сбросить сезон и учитывать игры с ${new Date(resetDate).toLocaleDateString(
+                'ru-RU'
+            )}?`
+        )
+    ) {
+        resetSeasonByDate(resetDate);
+    }
+}
+
+function cancelSeasonReset() {
+    document.getElementById('seasonDatePickerModal').style.display = 'none';
 }
 
 function openEditGameModal(gameIndex) {
     const games = getGames();
     const game = games[gameIndex];
     if (!game) return;
+
     document.getElementById('editGameIndex').value = gameIndex;
     document.getElementById('editGameDate').value = game.date;
+
     const player1Select = document.getElementById('editPlayer1Select');
     const player2Select = document.getElementById('editPlayer2Select');
     const player1Result = document.getElementById('editPlayer1Result');
     const player2Result = document.getElementById('editPlayer2Result');
+
     player1Select.value = game.player1;
     player1Result.value = game.result1;
+
     if (game.type === 'BYE') {
         player2Select.value = '';
         player2Result.value = 'loss';
@@ -1195,9 +1419,11 @@ function openEditGameModal(gameIndex) {
         player2Select.disabled = false;
         player2Result.disabled = false;
     }
+
     if (document.getElementById('tournamentModal').style.display === 'flex') {
         document.getElementById('tournamentModal').style.display = 'none';
     }
+
     const editModal = document.getElementById('editGameModal');
     editModal.style.display = 'flex';
     editModal.style.zIndex = '1002';
@@ -1207,20 +1433,25 @@ function closeEditGameModal() {
     const editModal = document.getElementById('editGameModal');
     editModal.style.display = 'none';
     editModal.style.zIndex = '1001';
+
     if (currentTournamentDate)
         setTimeout(() => openTournamentModal(currentTournamentDate), 100);
 }
 
 function openEditPlayerModal(playerName, event) {
     if (event) event.stopPropagation();
+
     const players = getPlayers();
     const player = players[playerName];
     if (!player) return;
+
     const roundedRating = Math.round(player.rating);
+
     document.getElementById('editPlayerOriginalName').value = playerName;
     document.getElementById('editPlayerName').value = playerName;
     document.getElementById('editPlayerRating').value = roundedRating;
     document.getElementById('editPlayerRD').value = player.rd;
+
     document.getElementById('editPlayerModal').style.display = 'flex';
 }
 
@@ -1235,11 +1466,13 @@ function deleteGame(gameIndex) {
         )
     )
         return;
+
     const games = getGames();
     const gameToDelete = games[gameIndex];
     games.splice(gameIndex, 1);
     saveGames(games);
     recalculateAllRatings();
+
     const modalPlayerName = document.getElementById('modalPlayerName').textContent;
     if (
         document.getElementById('playerModal').style.display === 'flex' &&
@@ -1248,6 +1481,7 @@ function deleteGame(gameIndex) {
     ) {
         openPlayerModal(modalPlayerName);
     }
+
     displayRating();
     displayHistory();
     displayPlayerList();
@@ -1256,54 +1490,64 @@ function deleteGame(gameIndex) {
 
 function deletePlayerPrompt(playerName, event) {
     if (event) event.stopPropagation();
+
     if (
         !confirm(
             `Вы уверены, что хотите удалить игрока "${playerName}"? Это также удалит все игры с его участием.`
         )
     )
         return;
+
     deletePlayer(playerName);
 }
 
 function deletePlayer(playerName = null) {
     if (!playerName) playerName = document.getElementById('editPlayerOriginalName').value;
+
     const players = getPlayers();
     const games = getGames();
-    const seasonStats = getSeasonStats();
+
     delete players[playerName];
-    delete seasonStats[playerName];
+
     const updatedGames = games.filter(
         (game) => game.player1 !== playerName && game.player2 !== playerName
     );
+
     savePlayers(players);
     saveGames(updatedGames);
-    saveSeasonStats(seasonStats);
     recalculateAllRatings();
+
     displayRating();
     displayHistory();
     displayPlayerList();
     closeEditPlayerModal();
+
     alert(`Игрок "${playerName}" удален. Все рейтинги пересчитаны.`);
 }
 
 document.getElementById('editGameForm').addEventListener('submit', function (e) {
     e.preventDefault();
+
     const gameIndex = parseInt(document.getElementById('editGameIndex').value);
     const date = document.getElementById('editGameDate').value;
     const player1 = document.getElementById('editPlayer1Select').value;
     const player2 = document.getElementById('editPlayer2Select').value;
     const result1 = document.getElementById('editPlayer1Result').value;
     const result2 = document.getElementById('editPlayer2Result').value;
+
     if (!date || !player1) {
         alert('Пожалуйста, заполните все обязательные поля');
         return;
     }
+
     const games = getGames();
+
     if (player2) {
         if (player1 === player2) {
             alert('Нельзя выбрать одного и того же игрока дважды');
             return;
         }
+
         if (
             (result1 === 'win' && result2 === 'win') ||
             (result1 === 'loss' && result2 === 'loss')
@@ -1313,6 +1557,7 @@ document.getElementById('editGameForm').addEventListener('submit', function (e) 
             );
             return;
         }
+
         games[gameIndex] = {
             ...games[gameIndex],
             date: date,
@@ -1333,55 +1578,66 @@ document.getElementById('editGameForm').addEventListener('submit', function (e) 
             result2: 'loss',
         };
     }
+
     saveGames(games);
     recalculateAllRatings();
+
     displayRating();
     displayHistory();
     displayPlayerList();
     closeEditGameModal();
+
     alert('Игра обновлена. Все рейтинги пересчитаны.');
 });
 
 document.getElementById('editPlayerForm').addEventListener('submit', function (e) {
     e.preventDefault();
+
     const originalName = document.getElementById('editPlayerOriginalName').value;
     const newName = document.getElementById('editPlayerName').value.trim();
     const rating = parseInt(document.getElementById('editPlayerRating').value);
     const rd = parseInt(document.getElementById('editPlayerRD').value);
+
     if (!newName) {
         alert('Пожалуйста, введите имя игрока');
         return;
     }
+
     if (rd < 30 || rd > 350) {
         alert('RD должен быть в диапазоне от 30 до 350');
         return;
     }
+
     const players = getPlayers();
     const games = getGames();
-    const seasonStats = getSeasonStats();
+
     if (originalName !== newName) {
         if (players[newName]) {
             alert('Игрок с таким именем уже существует');
             return;
         }
+
         games.forEach((game) => {
             if (game.player1 === originalName) game.player1 = newName;
             if (game.player2 === originalName) game.player2 = newName;
         });
+
         players[newName] = players[originalName];
-        seasonStats[newName] = seasonStats[originalName] || { games: 0, tournaments: [] };
         delete players[originalName];
-        delete seasonStats[originalName];
     }
+
     players[newName].rating = rating;
     players[newName].rd = rd;
+
     savePlayers(players);
     saveGames(games);
-    saveSeasonStats(seasonStats);
+    recalculateAllRatings();
+
     displayRating();
     displayHistory();
     displayPlayerList();
     closeEditPlayerModal();
+
     alert('Профиль игрока обновлен');
 });
 
@@ -1389,16 +1645,21 @@ document.getElementById('exportData').addEventListener('click', function () {
     const players = getPlayers();
     const games = getGames();
     const seasonStats = getSeasonStats();
+    const seasonSettings = getSeasonSettings();
+
     const playersForExport = { ...players };
     Object.keys(playersForExport).forEach((playerName) => {
         playersForExport[playerName]._exactRating = playersForExport[playerName].rating;
     });
+
     const data = {
         players: playersForExport,
         games,
         seasonStats,
+        seasonSettings,
         exportDate: new Date().toISOString(),
     };
+
     const dataStr = JSON.stringify(data, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
@@ -1415,13 +1676,17 @@ document.getElementById('importData').addEventListener('click', function () {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
+
     input.addEventListener('change', function (e) {
         const file = e.target.files[0];
         if (!file) return;
+
         const reader = new FileReader();
+
         reader.onload = function (e) {
             try {
                 const data = JSON.parse(e.target.result);
+
                 if (data.players && data.games) {
                     Object.keys(data.players).forEach((playerName) => {
                         if (data.players[playerName]._exactRating !== undefined) {
@@ -1429,8 +1694,10 @@ document.getElementById('importData').addEventListener('click', function () {
                                 data.players[playerName]._exactRating;
                         }
                     });
+
                     savePlayers(data.players);
                     saveGames(data.games);
+
                     if (data.seasonStats) {
                         saveSeasonStats(data.seasonStats);
                     } else {
@@ -1440,10 +1707,18 @@ document.getElementById('importData').addEventListener('click', function () {
                         });
                         saveSeasonStats(seasonStats);
                     }
+
+                    if (data.seasonSettings) {
+                        saveSeasonSettings(data.seasonSettings);
+                    } else {
+                        saveSeasonSettings({ seasonStartDate: null });
+                    }
+
                     displayPlayerList();
                     populatePlayerSelects();
                     displayRating();
                     displayHistory();
+
                     alert('Данные успешно импортированы!');
                 } else {
                     alert('Некорректный формат файла');
@@ -1452,8 +1727,10 @@ document.getElementById('importData').addEventListener('click', function () {
                 alert('Ошибка при чтении файла: ' + error.message);
             }
         };
+
         reader.readAsText(file);
     });
+
     input.click();
 });
 
@@ -1466,22 +1743,28 @@ document.getElementById('resetData').addEventListener('click', function () {
         localStorage.removeItem('glickoPlayers');
         localStorage.removeItem('glickoGames');
         localStorage.removeItem('glickoSeasonStats');
+        localStorage.removeItem('glickoSeasonSettings');
+
         displayPlayerList();
         populatePlayerSelects();
         displayRating();
         displayHistory();
         clearAllGames();
+
         alert('Все данные сброшены');
     }
 });
 
 document.getElementById('addPlayerForm').addEventListener('submit', function (e) {
     e.preventDefault();
+
     const playerName = document.getElementById('playerName').value.trim();
+
     if (!playerName) {
         alert('Пожалуйста, введите имя игрока');
         return;
     }
+
     if (addPlayer(playerName)) {
         displayPlayerList();
         populatePlayerSelects();
@@ -1501,44 +1784,56 @@ document.getElementById('clearGamesBtn').addEventListener('click', clearAllGames
 
 document.getElementById('gamesForm').addEventListener('submit', function (e) {
     e.preventDefault();
+
     const date = document.getElementById('gameDate').value;
+
     if (!date) {
         alert('Пожалуйста, введите дату игр');
         return;
     }
+
     const gameEntries = document.querySelectorAll('.game-entry');
+
     if (gameEntries.length === 0) {
         alert('Пожалуйста, добавьте хотя бы одну игру');
         return;
     }
+
     const gamesData = [];
     let hasErrors = false;
+
     gameEntries.forEach((entry, index) => {
         const player1Select = entry.querySelector('.player1-select');
         const player2Select = entry.querySelector('.player2-select');
         const player1Result = entry.querySelector('.player1-result');
+
         const player1 = player1Select.value;
         const result1 = player1Result.value;
+
         if (!player1) {
             alert(`В игре ${index + 1} не выбран игрок`);
             hasErrors = true;
             return;
         }
+
         if (isByeGame(entry)) {
             gamesData.push({ player1, result1: 'win', isBye: true });
         } else {
             const player2 = player2Select.value;
             const result2 = entry.querySelector('.player2-result').value;
+
             if (!player2) {
                 alert(`В игре ${index + 1} не выбран второй игрок`);
                 hasErrors = true;
                 return;
             }
+
             if (player1 === player2) {
                 alert(`В игре ${index + 1} выбран один и тот же игрок дважды`);
                 hasErrors = true;
                 return;
             }
+
             if (
                 (result1 === 'win' && result2 === 'win') ||
                 (result1 === 'loss' && result2 === 'loss')
@@ -1551,10 +1846,13 @@ document.getElementById('gamesForm').addEventListener('submit', function (e) {
                 hasErrors = true;
                 return;
             }
+
             gamesData.push({ player1, player2, result1, result2, isBye: false });
         }
     });
+
     if (hasErrors) return;
+
     if (addGames(date, gamesData)) {
         displayPlayerList();
         displayRating();
@@ -1580,6 +1878,10 @@ document.getElementById('tournamentModal').addEventListener('click', function (e
     if (e.target === this) closeTournamentModal();
 });
 
+document.getElementById('seasonDatePickerModal').addEventListener('click', function (e) {
+    if (e.target === this) cancelSeasonReset();
+});
+
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
         if (document.getElementById('editGameModal').style.display === 'flex')
@@ -1590,6 +1892,10 @@ document.addEventListener('keydown', function (e) {
             closePlayerModal();
         else if (document.getElementById('editPlayerModal').style.display === 'flex')
             closeEditPlayerModal();
+        else if (
+            document.getElementById('seasonDatePickerModal').style.display === 'flex'
+        )
+            cancelSeasonReset();
     }
 });
 
@@ -1605,10 +1911,12 @@ function adaptTablesForMobile() {
             'Турниров',
             'Последнее обновление',
         ];
+
         ratingCells.forEach((cell, index) => {
             const labelIndex = index % ratingLabels.length;
             cell.setAttribute('data-label', ratingLabels[labelIndex]);
         });
+
         const historyCells = document.querySelectorAll('#historyBody td');
         const historyLabels = [
             'Дата',
@@ -1620,6 +1928,7 @@ function adaptTablesForMobile() {
             'Изменения рейтинга',
             'Действия',
         ];
+
         historyCells.forEach((cell, index) => {
             const labelIndex = index % historyLabels.length;
             cell.setAttribute('data-label', historyLabels[labelIndex]);
@@ -1632,20 +1941,24 @@ window.addEventListener('resize', adaptTablesForMobile);
 document.addEventListener('DOMContentLoaded', function () {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('gameDate').value = today;
-    const seasonStats = getSeasonStats();
-    if (Object.keys(seasonStats).length === 0) {
-        const players = getPlayers();
-        Object.keys(players).forEach((playerName) => {
-            seasonStats[playerName] = { games: 0, tournaments: [] };
-        });
-        saveSeasonStats(seasonStats);
+
+    // Инициализируем настройки сезона, если их нет
+    const settings = getSeasonSettings();
+    if (!settings.seasonStartDate) {
+        saveSeasonSettings({ seasonStartDate: null });
     }
+
+    // Пересчитываем сезонную статистику
+    recalculateSeasonStats();
+
     displayPlayerList();
     populatePlayerSelects();
     displayRating();
     displayHistory();
     setupSorting();
     addGameToForm(false);
+
     document.getElementById('resetSeasonBtn').addEventListener('click', resetSeason);
+
     adaptTablesForMobile();
 });
