@@ -31,8 +31,23 @@
                         </div>
                         <button type="submit">Добавить игрока</button>
                     </form>
-
-                    <h2 style="margin-top: 20px">Список игроков</h2>
+                    <div
+                        style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: 10px;
+                        "
+                    >
+                        <h2 style="margin: 0">Список игроков</h2>
+                        <button
+                            id="toggleInactivePlayers"
+                            class="secondary"
+                            style="font-size: 12px; padding: 5px 10px"
+                        >
+                            Показать всех
+                        </button>
+                    </div>
                     <div class="player-list" id="playerList"></div>
                 </div>
 
@@ -155,13 +170,22 @@
                 </div>
 
                 <div class="tab-navigation">
-                    <button class="tab-button active" onclick="switchTab('stats-tab')">
+                    <button
+                        class="tab-button active"
+                        onclick="switchTab('stats-tab', event)"
+                    >
                         Общая статистика
                     </button>
-                    <button class="tab-button" onclick="switchTab('tournaments-tab')">
+                    <button
+                        class="tab-button"
+                        onclick="switchTab('tournaments-tab', event)"
+                    >
                         Турниры
                     </button>
-                    <button class="tab-button" onclick="switchTab('opponents-tab')">
+                    <button
+                        class="tab-button"
+                        onclick="switchTab('opponents-tab', event)"
+                    >
                         Соперники
                     </button>
                 </div>
@@ -192,8 +216,6 @@
                             <div class="stat-label">Игр/турнир</div>
                         </div>
                     </div>
-
-                    <!-- Круговая диаграмма будет вставлена здесь автоматически -->
 
                     <div class="season-reset-section">
                         <h3>Сброс сезонной статистики</h3>
@@ -393,6 +415,7 @@
                 </div>
             </div>
         </div>
+
         <!-- Модальное окно выбора даты начала сезона -->
         <div id="seasonDatePickerModal" class="modal-overlay" style="display: none">
             <div class="edit-game-modal">

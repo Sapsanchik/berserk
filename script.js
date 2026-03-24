@@ -6,6 +6,7 @@ const C = 15;
 
 let currentSort = { field: 'rating', order: 'desc' };
 let currentTournamentDate = '';
+let showInactivePlayers = false;
 
 function getPlayers() {
     const players = localStorage.getItem('glickoPlayers');
@@ -43,31 +44,74 @@ function saveSeasonSettings(settings) {
     localStorage.setItem('glickoSeasonSettings', JSON.stringify(settings));
 }
 
-// Новая функция для установки даты начала сезона
+function getActivePlayers() {
+    const players = getPlayers();
+    const activePlayers = {};
+    Object.entries(players).forEach(([name, data]) => {
+        if (data.status !== 'inactive') {
+            activePlayers[name] = data;
+        }
+    });
+    return activePlayers;
+}
+
+function togglePlayerStatus(playerName, isActive) {
+    const players = getPlayers();
+    if (players[playerName]) {
+        players[playerName].status = isActive ? 'active' : 'inactive';
+        savePlayers(players);
+
+        displayPlayerList(showInactivePlayers);
+        displayRating();
+        populatePlayerSelects();
+
+        const modal = document.getElementById('playerModal');
+        if (
+            modal.style.display === 'flex' &&
+            document.getElementById('modalPlayerName').textContent === playerName
+        ) {
+            openPlayerModal(playerName);
+        }
+    }
+}
+
+function togglePlayerStatusPrompt(playerName, event) {
+    if (event) event.stopPropagation();
+
+    const players = getPlayers();
+    const isCurrentlyActive = players[playerName]?.status !== 'inactive';
+    const action = isCurrentlyActive ? 'деактивировать' : 'активировать';
+    const message = isCurrentlyActive
+        ? `Вы уверены, что хотите деактивировать игрока "${playerName}"? Он не будет отображаться в списках, но его рейтинг и история сохранятся.`
+        : `Вы уверены, что хотите активировать игрока "${playerName}"? Он снова появится в списках.`;
+
+    if (confirm(message)) {
+        togglePlayerStatus(playerName, !isCurrentlyActive);
+        alert(`Игрок "${playerName}" ${action}рован`);
+    }
+}
+
 function setSeasonStartDate(date) {
     const settings = getSeasonSettings();
     settings.seasonStartDate = date;
     saveSeasonSettings(settings);
     recalculateSeasonStats();
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     displayRating();
     displayHistory();
 }
 
-// Новая функция для сброса сезона по дате
 function resetSeasonByDate(resetDate) {
     const settings = getSeasonSettings();
     settings.seasonStartDate = resetDate;
     saveSeasonSettings(settings);
 
-    // Пересчитываем сезонную статистику на основе новой даты
     recalculateSeasonStats();
 
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     displayRating();
     displayHistory();
 
-    // Закрываем модальное окно, если оно открыто
     const datePickerModal = document.getElementById('seasonDatePickerModal');
     if (datePickerModal) {
         datePickerModal.style.display = 'none';
@@ -80,13 +124,11 @@ function resetSeasonByDate(resetDate) {
     );
 }
 
-// Новая функция для пересчета сезонной статистики на основе даты
 function recalculateSeasonStats() {
     const settings = getSeasonSettings();
     const games = getGames();
     const seasonStartDate = settings.seasonStartDate;
 
-    // Если дата начала сезона не установлена, используем все игры
     if (!seasonStartDate) {
         const allStats = {};
         games.forEach((game) => {
@@ -120,13 +162,11 @@ function recalculateSeasonStats() {
         return;
     }
 
-    // Фильтруем игры по дате начала сезона
     const startTime = new Date(seasonStartDate).getTime();
     const seasonGames = games.filter(
         (game) => new Date(game.date).getTime() >= startTime
     );
 
-    // Пересчитываем статистику
     const seasonStats = {};
 
     seasonGames.forEach((game) => {
@@ -157,7 +197,6 @@ function recalculateSeasonStats() {
         }
     });
 
-    // Добавляем игроков без игр в сезоне
     const players = getPlayers();
     Object.keys(players).forEach((playerName) => {
         if (!seasonStats[playerName]) {
@@ -267,6 +306,7 @@ function recalculateAllRatings() {
             volatility: '0.0',
             lastUpdate: 0,
             _exactRating: INITIAL_RATING,
+            status: players[playerName].status || 'active',
         };
     });
 
@@ -327,10 +367,7 @@ function recalculateAllRatings() {
     });
 
     savePlayers(players);
-
-    // Пересчитываем сезонную статистику
     recalculateSeasonStats();
-
     return players;
 }
 
@@ -346,12 +383,10 @@ function addPlayer(name) {
         games: 0,
         volatility: '0.0',
         lastUpdate: Date.now(),
+        status: 'active',
     };
     savePlayers(players);
-
-    // Пересчитываем сезонную статистику
     recalculateSeasonStats();
-
     return true;
 }
 
@@ -421,7 +456,7 @@ function createByeGameEntry(index) {
 }
 
 function populateGameSelects(gameElement) {
-    const players = getPlayers();
+    const players = getActivePlayers();
     const player1Select = gameElement.querySelector('.player1-select');
     const player2Select = gameElement.querySelector('.player2-select');
     player1Select.innerHTML = '<option value="">Выберите игрока 1</option>';
@@ -484,7 +519,7 @@ function addGames(date, gamesData) {
     const currentTime = new Date(date).getTime();
     const tempPlayers = JSON.parse(JSON.stringify(players));
 
-    gamesData.forEach((gameData) => {
+    for (const gameData of gamesData) {
         const { player1, player2, result1, result2, isBye } = gameData;
 
         if (!tempPlayers[player1]) {
@@ -520,6 +555,11 @@ function addGames(date, gamesData) {
         } else {
             if (!tempPlayers[player2]) {
                 alert(`Игрок не найден: ${player2}`);
+                return false;
+            }
+
+            if (player1 === player2) {
+                alert('Нельзя играть с самим собой');
                 return false;
             }
 
@@ -570,27 +610,23 @@ function addGames(date, gamesData) {
                 expected2: (updatedPlayer2.expectedScore * 100).toFixed(1),
             });
         }
-    });
+    }
 
     savePlayers(tempPlayers);
     saveGames(games);
-
-    // Пересчитываем сезонную статистику
     recalculateSeasonStats();
-
     return true;
 }
 
-function displayPlayerList() {
-    const players = getPlayers();
+function displayPlayerList(showInactive = false) {
+    const players = showInactive ? getPlayers() : getActivePlayers();
     const seasonStats = getSeasonStats();
-    const settings = getSeasonSettings();
     const playerList = document.getElementById('playerList');
 
     playerList.innerHTML = '';
 
     if (Object.keys(players).length === 0) {
-        playerList.innerHTML = '<p>Нет добавленных игроков</p>';
+        playerList.innerHTML = '<p>Нет активных игроков</p>';
         return;
     }
 
@@ -600,25 +636,33 @@ function displayPlayerList() {
             ? playerStats.tournaments.length
             : 0;
 
+        const isActive = data.status !== 'inactive';
+
         const playerItem = document.createElement('div');
         playerItem.className = 'player-item';
         playerItem.innerHTML = `
-        <span onclick="openPlayerModal('${name}')" style="cursor: pointer; flex: 1;">${name}</span>
-        <div style="display: flex; gap: 5px; align-items: center;">
-            <span class="games-count">${playerStats.games} игр</span>
-            <span class="tournaments-count">${tournamentsCount} турниров</span>
-            <div class="player-actions">
-                <button class="player-action-btn edit-btn" onclick="openEditPlayerModal('${name}', event)">✏️</button>
-                <button class="player-action-btn reset-btn" onclick="resetPlayerSeasonPrompt('${name}', event)">🔄</button>
-                <button class="player-action-btn delete-btn" onclick="deletePlayerPrompt('${name}', event)">🗑️</button>
+            <span onclick="openPlayerModal('${name}')" style="cursor: pointer; flex: 1;">${name}</span>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <span class="games-count">${playerStats.games} игр</span>
+                <span class="tournaments-count">${tournamentsCount} турниров</span>
+                <div class="player-actions">
+                    <button class="player-action-btn status-btn ${
+                        isActive ? 'warning' : 'success'
+                    }" 
+                            onclick="togglePlayerStatusPrompt('${name}', event)"
+                            title="${isActive ? 'Деактивировать' : 'Активировать'}">
+                        ${isActive ? '🔴' : '🟢'}
+                    </button>
+                    <button class="player-action-btn edit-btn" onclick="openEditPlayerModal('${name}', event)">✏️</button>
+                    <button class="player-action-btn delete-btn" onclick="deletePlayerPrompt('${name}', event)">🗑️</button>
+                </div>
             </div>
-        </div>
-    `;
+        `;
         playerList.appendChild(playerItem);
     });
 
-    // Отображаем информацию о дате начала сезона
     const seasonInfo = document.getElementById('seasonInfo');
+    const settings = getSeasonSettings();
     if (seasonInfo) {
         if (settings.seasonStartDate) {
             seasonInfo.innerHTML = `Сезон учитывает игры с <strong>${new Date(
@@ -631,7 +675,7 @@ function displayPlayerList() {
 }
 
 function populatePlayerSelects() {
-    const players = getPlayers();
+    const players = getActivePlayers();
     const gameEntries = document.querySelectorAll('.game-entry');
     gameEntries.forEach((entry) => {
         populateGameSelects(entry);
@@ -702,7 +746,7 @@ function sortPlayers(players, sortBy, sortOrder) {
 }
 
 function displayRating() {
-    const players = getPlayers();
+    const players = getActivePlayers();
     const seasonStats = getSeasonStats();
     const ratingBody = document.getElementById('ratingBody');
 
@@ -710,7 +754,7 @@ function displayRating() {
 
     if (Object.keys(players).length === 0) {
         ratingBody.innerHTML =
-            '<tr><td colspan="7" style="text-align: center;">Нет данных о рейтинге</td></tr>';
+            '<tr><td colspan="7" style="text-align: center;">Нет активных игроков</td></tr>';
         return;
     }
 
@@ -734,14 +778,14 @@ function displayRating() {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-        <td class="position-number">${index + 1}</td>
-        <td><span onclick="openPlayerModal('${name}')" style="cursor: pointer; font-weight: 600;">${name}</span></td>
-        <td class="rating">${roundedRating}</td>
-        <td><span class="rd-value">${data.rd}</span></td>
-        <td>${playerStats.games}</td>
-        <td>${tournamentsCount}</td>
-        <td>${lastUpdate}</td>
-    `;
+            <td class="position-number">${index + 1}</td>
+            <td><span onclick="openPlayerModal('${name}')" style="cursor: pointer; font-weight: 600;">${name}</span></td>
+            <td class="rating">${roundedRating}</td>
+            <td><span class="rd-value">${data.rd}</span></td>
+            <td>${playerStats.games}</td>
+            <td>${tournamentsCount}</td>
+            <td>${lastUpdate}</td>
+        `;
         ratingBody.appendChild(row);
     });
 
@@ -823,35 +867,35 @@ function displayHistory() {
                 : '';
 
         row.innerHTML = `
-        <td>${game.date}</td>
-        <td><span class="${typeClass} game-type-badge ${typeBadge}">${
+            <td>${game.date}</td>
+            <td><span class="${typeClass} game-type-badge ${typeBadge}">${
             game.type
         }</span></td>
-        <td><span onclick="openPlayerModal('${game.player1}')" style="cursor: pointer;">${
-            game.player1
-        }</span></td>
-        <td class="${result1Class}">${getResultText(game.result1)}</td>
-        <td>${
-            game.player2
-                ? `<span onclick="openPlayerModal('${game.player2}')" style="cursor: pointer;">${game.player2}</span>`
-                : '-'
-        }</td>
-        <td class="${result2Class}">${getResultText(game.result2)}</td>
-        <td>
-            <span class="${change1Class}">${game.player1}: ${change1}</span>
-            ${
+            <td><span onclick="openPlayerModal('${
+                game.player1
+            }')" style="cursor: pointer;">${game.player1}</span></td>
+            <td class="${result1Class}">${getResultText(game.result1)}</td>
+            <td>${
                 game.player2
-                    ? `<br><span class="${change2Class}">${game.player2}: ${change2}</span>`
-                    : ''
-            }
-        </td>
-        <td>
-            <div class="history-actions">
-                <button class="game-action-btn edit-btn" onclick="openEditGameModal(${index})">✏️</button>
-                <button class="game-action-btn delete-btn" onclick="deleteGame(${index})">🗑️</button>
-            </div>
-        </td>
-    `;
+                    ? `<span onclick="openPlayerModal('${game.player2}')" style="cursor: pointer;">${game.player2}</span>`
+                    : '-'
+            }</td>
+            <td class="${result2Class}">${getResultText(game.result2)}</td>
+            <td>
+                <span class="${change1Class}">${game.player1}: ${change1}</span>
+                ${
+                    game.player2
+                        ? `<br><span class="${change2Class}">${game.player2}: ${change2}</span>`
+                        : ''
+                }
+            </td>
+            <td>
+                <div class="history-actions">
+                    <button class="game-action-btn edit-btn" onclick="openEditGameModal(${index})">✏️</button>
+                    <button class="game-action-btn delete-btn" onclick="deleteGame(${index})">🗑️</button>
+                </div>
+            </td>
+        `;
         historyBody.appendChild(row);
     });
 }
@@ -861,7 +905,7 @@ function getResultText(result) {
     return resultMap[result] || result;
 }
 
-function switchTab(tabId) {
+function switchTab(tabId, event) {
     document.querySelectorAll('.tab-content').forEach((tab) => {
         tab.classList.remove('active');
     });
@@ -869,7 +913,9 @@ function switchTab(tabId) {
         button.classList.remove('active');
     });
     document.getElementById(tabId).classList.add('active');
-    event.target.classList.add('active');
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
 }
 
 function displayWinChart(playerName, wins, losses, draws, totalGames) {
@@ -1259,7 +1305,7 @@ function updateTournamentDate() {
         recalculateAllRatings();
         displayRating();
         displayHistory();
-        displayPlayerList();
+        displayPlayerList(showInactivePlayers);
         closeTournamentModal();
         alert(`Дата турнира изменена с ${oldDate} на ${newDate}`);
     }
@@ -1288,7 +1334,7 @@ function deleteGameFromTournament(globalIndex) {
 
         displayRating();
         displayHistory();
-        displayPlayerList();
+        displayPlayerList(showInactivePlayers);
         alert('Игра удалена');
     }
 }
@@ -1322,7 +1368,7 @@ function deleteTournament() {
         closeTournamentModal();
         displayRating();
         displayHistory();
-        displayPlayerList();
+        displayPlayerList(showInactivePlayers);
         alert(`Турнир ${currentTournamentDate} удален`);
     }
 }
@@ -1331,38 +1377,31 @@ function closePlayerModal() {
     document.getElementById('playerModal').style.display = 'none';
 }
 
-function resetPlayerSeasonPrompt(playerName, event) {
-    if (event) event.stopPropagation();
-    if (
-        !confirm(
-            `Сбросить сезонную статистику игрока "${playerName}"? Это обнулит количество игр и турниров для награждения.`
-        )
-    )
-        return;
-    resetPlayerSeason(playerName);
-}
-
 function resetPlayerSeason(playerName = null) {
-    if (!playerName) playerName = document.getElementById('modalPlayerName').textContent;
+    if (!playerName) {
+        playerName = document.getElementById('modalPlayerName').textContent;
+    }
 
-    // Обновляем статистику игрока на основе даты начала сезона
-    recalculateSeasonStats();
+    const seasonStats = getSeasonStats();
+    if (seasonStats[playerName]) {
+        seasonStats[playerName] = { games: 0, tournaments: [] };
+        saveSeasonStats(seasonStats);
+    }
 
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     displayRating();
 
-    if (document.getElementById('playerModal').style.display === 'flex')
+    if (document.getElementById('playerModal').style.display === 'flex') {
         openPlayerModal(playerName);
+    }
 
     alert(`Сезонная статистика игрока "${playerName}" сброшена`);
 }
 
 function resetSeason() {
-    // Показываем модальное окно с выбором даты
     const datePickerModal = document.getElementById('seasonDatePickerModal');
     const dateInput = document.getElementById('seasonResetDate');
 
-    // Устанавливаем текущую дату по умолчанию
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
 
@@ -1484,7 +1523,7 @@ function deleteGame(gameIndex) {
 
     displayRating();
     displayHistory();
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     alert('Игра удалена. Все рейтинги пересчитаны.');
 }
 
@@ -1502,7 +1541,9 @@ function deletePlayerPrompt(playerName, event) {
 }
 
 function deletePlayer(playerName = null) {
-    if (!playerName) playerName = document.getElementById('editPlayerOriginalName').value;
+    if (!playerName) {
+        playerName = document.getElementById('editPlayerOriginalName').value;
+    }
 
     const players = getPlayers();
     const games = getGames();
@@ -1519,7 +1560,7 @@ function deletePlayer(playerName = null) {
 
     displayRating();
     displayHistory();
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     closeEditPlayerModal();
 
     alert(`Игрок "${playerName}" удален. Все рейтинги пересчитаны.`);
@@ -1584,7 +1625,7 @@ document.getElementById('editGameForm').addEventListener('submit', function (e) 
 
     displayRating();
     displayHistory();
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     closeEditGameModal();
 
     alert('Игра обновлена. Все рейтинги пересчитаны.');
@@ -1635,7 +1676,7 @@ document.getElementById('editPlayerForm').addEventListener('submit', function (e
 
     displayRating();
     displayHistory();
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     closeEditPlayerModal();
 
     alert('Профиль игрока обновлен');
@@ -1693,6 +1734,9 @@ document.getElementById('importData').addEventListener('click', function () {
                             data.players[playerName].rating =
                                 data.players[playerName]._exactRating;
                         }
+                        if (!data.players[playerName].status) {
+                            data.players[playerName].status = 'active';
+                        }
                     });
 
                     savePlayers(data.players);
@@ -1714,7 +1758,8 @@ document.getElementById('importData').addEventListener('click', function () {
                         saveSeasonSettings({ seasonStartDate: null });
                     }
 
-                    displayPlayerList();
+                    recalculateAllRatings();
+                    displayPlayerList(showInactivePlayers);
                     populatePlayerSelects();
                     displayRating();
                     displayHistory();
@@ -1745,7 +1790,7 @@ document.getElementById('resetData').addEventListener('click', function () {
         localStorage.removeItem('glickoSeasonStats');
         localStorage.removeItem('glickoSeasonSettings');
 
-        displayPlayerList();
+        displayPlayerList(showInactivePlayers);
         populatePlayerSelects();
         displayRating();
         displayHistory();
@@ -1766,7 +1811,7 @@ document.getElementById('addPlayerForm').addEventListener('submit', function (e)
     }
 
     if (addPlayer(playerName)) {
-        displayPlayerList();
+        displayPlayerList(showInactivePlayers);
         populatePlayerSelects();
         displayRating();
         document.getElementById('addPlayerForm').reset();
@@ -1854,7 +1899,7 @@ document.getElementById('gamesForm').addEventListener('submit', function (e) {
     if (hasErrors) return;
 
     if (addGames(date, gamesData)) {
-        displayPlayerList();
+        displayPlayerList(showInactivePlayers);
         displayRating();
         displayHistory();
         clearAllGames();
@@ -1942,16 +1987,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('gameDate').value = today;
 
-    // Инициализируем настройки сезона, если их нет
     const settings = getSeasonSettings();
     if (!settings.seasonStartDate) {
         saveSeasonSettings({ seasonStartDate: null });
     }
 
-    // Пересчитываем сезонную статистику
     recalculateSeasonStats();
 
-    displayPlayerList();
+    displayPlayerList(showInactivePlayers);
     populatePlayerSelects();
     displayRating();
     displayHistory();
@@ -1959,6 +2002,18 @@ document.addEventListener('DOMContentLoaded', function () {
     addGameToForm(false);
 
     document.getElementById('resetSeasonBtn').addEventListener('click', resetSeason);
+
+    const toggleInactiveBtn = document.getElementById('toggleInactivePlayers');
+    if (toggleInactiveBtn) {
+        toggleInactiveBtn.addEventListener('click', () => {
+            showInactivePlayers = !showInactivePlayers;
+            toggleInactiveBtn.textContent = showInactivePlayers
+                ? 'Скрыть неактивных'
+                : 'Показать всех';
+            toggleInactiveBtn.classList.toggle('warning', showInactivePlayers);
+            displayPlayerList(showInactivePlayers);
+        });
+    }
 
     adaptTablesForMobile();
 });
